@@ -983,7 +983,7 @@ void init()
     wnd_update();
 }
 
-int main()
+int  WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 {
 	try
 	{
