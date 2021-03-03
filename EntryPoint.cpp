@@ -1137,7 +1137,7 @@ void initAssets()
             &pResource, ddsData, subResDataVector);
 
         uploadSubresources(pResource, subResDataVector.size(), &subResDataVector[0]);
-        createSRV(pResource, 7);
+        createSRVTex2D(pResource, 7);
 
         textures[7] = pResource;
     }
@@ -1150,7 +1150,7 @@ void initAssets()
             &pResource, ddsData, subResDataVector);
 
         uploadSubresources(pResource, subResDataVector.size(), &subResDataVector[0]);
-        createSRV(pResource, 8);
+        createSRVTex2D(pResource, 8);
 
         textures[8] = pResource;
     }
