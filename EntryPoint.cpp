@@ -2,6 +2,7 @@
 #include <wrl.h>
 #include "util.h"
 #include "input.h"
+#include "Timer.h"
 #include "RingUploadBuffer.h"
 #include "DDSTextureLoader12.h"
 
@@ -34,7 +35,8 @@ const UINT height = 600;
 const UINT FrameCount = 2;
 const float aspectRatio = (float)width / (float)height;
 
-gInput* input = 0;
+std::shared_ptr<gInput> input;
+std::shared_ptr<gTimer> timer;
 
 size_t rtvDescriptorSize = 0;
 size_t dsvDescriptorSize = 0;
@@ -72,6 +74,8 @@ UINT64 fenceValue;
 
 D3D12_VIEWPORT viewport;
 D3D12_RECT scissorRect;
+
+float cBuffer[4] = { 0.f, 0.f, 0.f, 0.f };
 
 void WaitForPreviousFrame()
 {
@@ -132,7 +136,7 @@ void PopulateCommandList()
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(pRTVHeap->GetCPUDescriptorHandleForHeapStart(), frameIndex, rtvDescriptorSize);
     CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(pDSVHeap->GetCPUDescriptorHandleForHeapStart());
    
-    pCommList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+    pCommList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
 
     // Record commands.
     const float clearColor[] = { 0.0f, 0.4f, 0.2f, 1.0f };
@@ -147,16 +151,11 @@ void PopulateCommandList()
     for (int i = 0; i < 9; i++)
     {
         pCommList->SetGraphicsRootDescriptorTable(1, h);
+        pCommList->SetGraphicsRoot32BitConstants( 0, 4, cBuffer, 0 );
         h.Offset(srvDescriptorSize);
         //pCommList->DrawInstanced(6, 2, i * 6, 0);
-        pCommList->DrawIndexedInstanced(6, 1, i * 6, 1, 0); // now indexed =)
+        pCommList->DrawIndexedInstanced(6, 1, i * 6, 0, 0); // now indexed =)
     }
-
-    //render 2nd quad
-    //h.Offset(srvDescriptorSize);
-    //pCommList->SetGraphicsRootDescriptorTable(1, h);
-    //pCommList->DrawInstanced(6, 2, 6, 0);
-
 
     // Indicate that the back buffer will now be used to present.
     barrier = CD3DX12_RESOURCE_BARRIER::Transition( pRenderTargets[frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
@@ -187,6 +186,23 @@ void frame_render()
 
 bool frame_move()
 {
+    float dt = timer->getDelta();
+    input->update();
+
+    constexpr float speed = 1.f;
+
+    if (input->isKeyPressed(DIK_RIGHT))
+        cBuffer[0] += dt * speed;
+
+    if (input->isKeyPressed(DIK_LEFT))
+        cBuffer[0] -= dt * speed;
+
+    if (input->isKeyPressed(DIK_UP))
+        cBuffer[1] += dt * speed;
+
+    if (input->isKeyPressed(DIK_DOWN))
+        cBuffer[1] -= dt * speed;
+
 	return true;
 }
 
@@ -195,8 +211,6 @@ void cleanUp()
 	if (input)
 	{
 		input->close();
-		delete input;
-		input = 0;
 	}
 
     // Wait for the GPU to be done with all resources.
@@ -535,7 +549,7 @@ void createSRV(ID3D12Resource* pResourse, UINT heapOffsetInDescriptors)
 }
 
 // Create Vertex, Index or Constants buffer
-ComPtr<ID3D12Resource> createBuffer(void* vdata, UINT64 size, ComPtr<ID3D12DescriptorHeap> heap, UINT heapOffsetInDescriptors)
+ComPtr<ID3D12Resource> createBuffer(void* data, UINT64 size, ComPtr<ID3D12DescriptorHeap> heap, UINT heapOffsetInDescriptors)
 {
     ComPtr<ID3D12Resource> cpResource;
 
@@ -553,17 +567,17 @@ ComPtr<ID3D12Resource> createBuffer(void* vdata, UINT64 size, ComPtr<ID3D12Descr
     if (FAILED(hr))
         throw("3DDevice->CreateCommittedResource() failed!");
 
-    D3D12_SUBRESOURCE_DATA vData = {};
-    vData.pData = vdata;
-    vData.RowPitch = size;
-    vData.SlicePitch = size;
+    D3D12_SUBRESOURCE_DATA srData = {};
+    srData.pData = data;
+    srData.RowPitch = size;
+    srData.SlicePitch = size;
 
-    uploadSubresources( cpResource.Get(), 1, &vData );
+    uploadSubresources( cpResource.Get(), 1, &srData );
 
     return cpResource;
 }
 
-ComPtr<ID3D12Resource> createTexture( void* pixelData, UINT width, UINT height, 
+ComPtr<ID3D12Resource> createTexture2D( void* pixelData, UINT width, UINT height, 
     BYTE pixelSize, DXGI_FORMAT format, ComPtr<ID3D12DescriptorHeap> heap,
     UINT heapOffsetInDescriptors )
 {   
@@ -636,13 +650,15 @@ void initAssets()
         ranges[0].Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC;
 
         CD3DX12_ROOT_PARAMETER1 rootParameters[2];
+        rootParameters[0].InitAsConstants(4, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
         rootParameters[1].InitAsDescriptorTable( 1, &ranges[0], D3D12_SHADER_VISIBILITY_PIXEL );
+
         //rootParameters[1].DescriptorTable.NumDescriptorRanges = _countof(ranges);
         //rootParameters[1].DescriptorTable.pDescriptorRanges = &ranges[0];
         //rootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
         //rootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
-        rootParameters[0].InitAsConstantBufferView( 0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX );
+        //rootParameters[0].InitAsConstantBufferView( 0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX );
 
         //rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // this is a constant buffer view root descriptor
         //rootParameters[0].Descriptor = rootCBVDescriptor; // this is the root descriptor for this root parameter
@@ -722,10 +738,10 @@ void initAssets()
     UINT compileFlags = 0;
 #endif
 
-    hr = D3DCompileFromFile(L"VertexShader.hlsl", nullptr, nullptr, "main", "vs_5_0", compileFlags, 0, &vertexShader, nullptr);
+    hr = D3DCompileFromFile(L"VertexShader.hlsl", nullptr, nullptr, "main", "vs_5_1", compileFlags, 0, &vertexShader, nullptr);
     if (FAILED(hr))
         throw("Cannot bild VS!");
-    hr = D3DCompileFromFile(L"PixelShader.hlsl", nullptr, nullptr, "main", "ps_5_0", compileFlags, 0, &pixelShader, nullptr);
+    hr = D3DCompileFromFile(L"PixelShader.hlsl", nullptr, nullptr, "main", "ps_5_1", compileFlags, 0, &pixelShader, nullptr);
     if (FAILED(hr))
         throw("Cannot bild PS!");
 
@@ -747,6 +763,7 @@ void initAssets()
     psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
     psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
     psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+    psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
     psoDesc.SampleMask = UINT_MAX;
     psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     psoDesc.NumRenderTargets = 1;
@@ -1031,7 +1048,7 @@ void initAssets()
             tmp[index] = val;
         }
     }
-    textures[0] = createTexture(tmp, texDim, texDim, sizeof(DWORD), 
+    textures[0] = createTexture2D(tmp, texDim, texDim, sizeof(DWORD), 
         DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 0);
 
     for (int i = 0; i < texDim; i++)
@@ -1044,7 +1061,7 @@ void initAssets()
             tmp[index] = val;
         }
     }
-    textures[1] = createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 1);
+    textures[1] = createTexture2D(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 1);
 
     for (int i = 0; i < texDim; i++)
     {
@@ -1056,7 +1073,7 @@ void initAssets()
             tmp[index] = val;
         }
     }
-    textures[2] = createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 2);
+    textures[2] = createTexture2D(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 2);
 
 
 
@@ -1070,7 +1087,7 @@ void initAssets()
             tmp[index] = val;
         }
     }
-    textures[3] = createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 3);
+    textures[3] = createTexture2D(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 3);
 
     for (int i = 0; i < texDim; i++)
     {
@@ -1083,7 +1100,7 @@ void initAssets()
             tmp[index] = val;
         }
     }
-    textures[4] = createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 4);
+    textures[4] = createTexture2D(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 4);
 
 
     for (int i = 0; i < texDim; i++)
@@ -1097,7 +1114,7 @@ void initAssets()
             tmp[index] = val;
         }
     }
-    textures[5] = createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 5);
+    textures[5] = createTexture2D(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 5);
 
     //create spiral
     memset( tmp, 0xFFFFFFFF, texDim * texDim * sizeof(DWORD));
@@ -1116,7 +1133,7 @@ void initAssets()
             tmp[y * texDim + x] = 0;
         }
     }
-    textures[6] = createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 6);
+    textures[6] = createTexture2D(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 6);
 
     //Test load dds:
     {
@@ -1163,9 +1180,11 @@ void init()
 	wnd_setFrameRenderCallBack(frame_render);
     wnd_setCleanUpCallBack(cleanUp);
 
-	input = new gInput(hwnd);
+	input = std::make_shared<gInput>(hwnd);
 	input->init();
 	input->reset();
+
+    timer = std::make_shared<gTimer>();
 
 	initDX12();
     initAssets();

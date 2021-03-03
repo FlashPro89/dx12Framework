@@ -12,16 +12,22 @@ struct VS_OUTPUT
 	float4 color : COLOR;
 };
 
-//cbuffer ConstantBuffer : register(b0)
-//{
-//	float4x4 wvpMat;
-//};
+struct sConstantBuffer
+{
+	//float4x4 wvpMat;
+	float2 pos;
+	float2 rot;
+};
+
+ConstantBuffer<sConstantBuffer> myCBuffer : register(b0);
 
 VS_OUTPUT main(VS_INPUT input)
 {
+
 	VS_OUTPUT output;
 	//output.pos = mul(input.pos, wvpMat);
 	output.pos = input.pos;
+	output.pos.xy += myCBuffer.pos;
 	output.texCoord = input.texCoord;
 	output.color = input.color;
 	return output;
