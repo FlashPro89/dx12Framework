@@ -530,13 +530,15 @@ void uploadSubresources(ID3D12Resource* pResource, UINT subResNum,
     pCommList->ResourceBarrier(1, &barrier);
 }
 
-void createSRV(ID3D12Resource* pResourse, UINT heapOffsetInDescriptors)
+void createSRVTex2D(ID3D12Resource* pResourse, UINT heapOffsetInDescriptors)
 {
     assert(pResourse != 0 && "null ID3D12Resource ptr!");
 
     // Describe and create a SRV for the texture.
     D3D12_RESOURCE_DESC desc = pResourse->GetDesc();
+    
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Format = desc.Format;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -569,7 +571,7 @@ ComPtr<ID3D12Resource> createBuffer(void* data, UINT64 size, ComPtr<ID3D12Descri
 
     D3D12_SUBRESOURCE_DATA srData = {};
     srData.pData = data;
-    srData.RowPitch = size;
+    srData.RowPitch = static_cast<LONG_PTR>(size);
     srData.SlicePitch = size;
 
     uploadSubresources( cpResource.Get(), 1, &srData );
@@ -584,22 +586,12 @@ ComPtr<ID3D12Resource> createTexture2D( void* pixelData, UINT width, UINT height
     CD3DX12_HEAP_PROPERTIES props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     ComPtr<ID3D12Resource> texture; 
 
-    // Describe and create a Texture2D.
-    D3D12_RESOURCE_DESC textureDesc = {};
-    textureDesc.MipLevels = 1;
-    textureDesc.Format = format;
-    textureDesc.Width = width;
-    textureDesc.Height = height;
-    textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-    textureDesc.DepthOrArraySize = 1;
-    textureDesc.SampleDesc.Count = 1;
-    textureDesc.SampleDesc.Quality = 0;
-    textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    auto desc = CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, 1, 1);
 
     HRESULT hr = pD3DDev->CreateCommittedResource(
         &props,
         D3D12_HEAP_FLAG_NONE,
-        &textureDesc,
+        &desc,
         D3D12_RESOURCE_STATE_COPY_DEST,
         nullptr,
         IID_PPV_ARGS(&texture));
@@ -613,7 +605,7 @@ ComPtr<ID3D12Resource> createTexture2D( void* pixelData, UINT width, UINT height
     srData.SlicePitch = width * pixelSize;
 
     uploadSubresources( texture.Get(), 1, &srData );
-    createSRV(texture.Get(), heapOffsetInDescriptors);
+    createSRVTex2D(texture.Get(), heapOffsetInDescriptors);
 
     return texture;
 }
@@ -1195,7 +1187,7 @@ void init()
     wnd_update();
 }
 
-int  WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 {
 	try
 	{
