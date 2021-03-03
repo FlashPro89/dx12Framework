@@ -2,6 +2,7 @@
 #include <wrl.h>
 #include "util.h"
 #include "input.h"
+#include "RingUploadBuffer.h"
 
 //#include <d3d12.h>
 #include <d3d12sdklayers.h>
@@ -55,6 +56,8 @@ ComPtr< ID3D12Resource >            pDepthStencil;
 ComPtr< ID3D12Resource >            textures[16];
 ComPtr< ID3D12Resource >            textureUploads[16];
 
+std::shared_ptr<gRingUploadBuffer> spRingBuffer;
+
 
 // App resources
 ComPtr<ID3D12Resource> pVertexBuffer;
@@ -68,6 +71,25 @@ UINT64 fenceValue;
 
 D3D12_VIEWPORT viewport;
 D3D12_RECT scissorRect;
+
+void WaitForCommandsComplete()
+{
+    HRESULT hr;
+
+    // Signal and increment the fence value.
+    static UINT64 commFenceValue;
+    constexpr UINT64 fence = 0xFFFFFFFFFFFFFFFE;
+    pCommQueue->Signal(pFence.Get(), fence);
+
+    // Wait until the previous frame is finished.
+    if (pFence->GetCompletedValue() < fence)
+    {
+        hr = pFence->SetEventOnCompletion(fence, fenceEvent);
+        if (FAILED(hr))
+            throw("Fence->SetEventOnCompletion() failed!");
+        WaitForSingleObject(fenceEvent, INFINITE);
+    }
+}
 
 void WaitForPreviousFrame()
 {
@@ -135,6 +157,7 @@ void PopulateCommandList()
     pCommList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
     pCommList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, 0 );
  
+
     pCommList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     pCommList->IASetVertexBuffers(0, 1, &pVertexBufferView);
 
@@ -219,6 +242,8 @@ void GetHardwareAdapter(
         {
             DXGI_ADAPTER_DESC1 desc;
             adapter->GetDesc1(&desc);
+
+            //continue;
 
             if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
             {
@@ -448,10 +473,31 @@ void initDX12()
         throw("Cannot make D3D12 command allcator!");
 }
 
+bool beginCommandList()
+{
+    HRESULT hr;
+    hr = pCommAllocator->Reset();
+    if (FAILED(hr))
+        return false;
+    hr = pCommList->Reset(pCommAllocator.Get(), pPipelineState.Get());
+    if (FAILED(hr))
+        return false;
+    return true;
+}
+
+bool endCommandList()
+{
+    HRESULT hr = pCommList->Close();
+    if (FAILED(hr))
+        return false;
+    ID3D12CommandList* ppCommandLists[] = { pCommList.Get() };
+    pCommQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+    return true;
+}
+
 void createTexture( void* pixelData, UINT width, UINT height, BYTE pixelSize, DXGI_FORMAT format,
     ComPtr<ID3D12DescriptorHeap> heap, UINT heapOffsetInDescriptors )
 {   
-    HRESULT hr;
     ComPtr<ID3D12Resource> texture; // = textures[heapOffsetInDescriptors].Get();
     ComPtr<ID3D12Resource> textureUploadHeap; // = textureUploads[heapOffsetInDescriptors].Get();
 
@@ -469,7 +515,7 @@ void createTexture( void* pixelData, UINT width, UINT height, BYTE pixelSize, DX
 
     CD3DX12_HEAP_PROPERTIES props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 
-    hr = pD3DDev->CreateCommittedResource(
+    HRESULT hr = pD3DDev->CreateCommittedResource(
         &props,
         D3D12_HEAP_FLAG_NONE,
         &textureDesc,
@@ -482,8 +528,28 @@ void createTexture( void* pixelData, UINT width, UINT height, BYTE pixelSize, DX
 
     const UINT64 uploadBufferSize = GetRequiredIntermediateSize( texture.Get(), 0, 1 );
 
-    props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+    //upload To RingBuffer
+    UINT64 uploadOffset;
+    void* lpUploadPtr = spRingBuffer->allocate(heapOffsetInDescriptors, uploadBufferSize,
+        D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, &uploadOffset);
 
+    if (!lpUploadPtr) // закончилась очередь загрузки
+    {
+        if (!endCommandList())
+            exit(-1);
+        WaitForPreviousFrame();
+        if (!beginCommandList())
+            exit(-1);
+
+        spRingBuffer->clearQueue();
+        lpUploadPtr = spRingBuffer->allocate(heapOffsetInDescriptors, uploadBufferSize,
+            D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, &uploadOffset);
+        
+        if (!lpUploadPtr) 
+            exit(-1);
+    }
+    /*
+    props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
     CD3DX12_RESOURCE_DESC rdesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
 
     // Create the GPU upload buffer.
@@ -497,6 +563,8 @@ void createTexture( void* pixelData, UINT width, UINT height, BYTE pixelSize, DX
     if (FAILED(hr))
         throw("Cannot create upload buffer!");
 
+    */
+
     D3D12_SUBRESOURCE_DATA textureData = {};
     textureData.pData = pixelData;
     textureData.RowPitch = width * pixelSize;
@@ -504,7 +572,7 @@ void createTexture( void* pixelData, UINT width, UINT height, BYTE pixelSize, DX
 
     CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-    UpdateSubresources( pCommList.Get(), texture.Get(), textureUploadHeap.Get(), 0, 0, 1, &textureData);
+    UpdateSubresources( pCommList.Get(), texture.Get(), spRingBuffer->getResource(), uploadOffset, 0, 1, &textureData);
     pCommList->ResourceBarrier(1, &barrier);
 
     // Describe and create a SRV for the texture.
@@ -521,11 +589,16 @@ void createTexture( void* pixelData, UINT width, UINT height, BYTE pixelSize, DX
 
     textures[heapOffsetInDescriptors] = texture;
     textureUploads[heapOffsetInDescriptors] = textureUploadHeap;
+
 }
 
 void initAssets()
 {
     HRESULT hr;
+
+    // Create ring upload buffer
+    spRingBuffer = std::make_shared < gRingUploadBuffer >(pD3DDev);
+    spRingBuffer->initialize(0xFFFFF);
 
     //----------------------------------------------
     //    Create the root signature.
@@ -624,8 +697,9 @@ void initAssets()
     }
 
 
+    //------------------------------------------------------
     //  Create Pipeline state
-
+    //------------------------------------------------------
     ComPtr<ID3DBlob> vertexShader;
     ComPtr<ID3DBlob> pixelShader;
     
@@ -671,6 +745,35 @@ void initAssets()
     if (FAILED(hr))
         throw("3DDevice->CreateGraphicsPipelineState() failed!");
 
+
+    //------------------------------------------------------
+    // Create the command list.
+    //------------------------------------------------------
+    hr = pD3DDev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, pCommAllocator.Get(), pPipelineState.Get(), IID_PPV_ARGS(&pCommList));
+    if (FAILED(hr))
+        throw("3DDevice->CreateCommandList() failed!");
+    
+    // close list;
+    hr = pCommList->Close();
+
+    if (!beginCommandList())
+        exit(-1);
+
+    //----------------------------------------------
+    // Create fence
+    //----------------------------------------------
+    hr = pD3DDev->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&pFence));
+    if (FAILED(hr))
+        throw("3DDevice->CreateFence() failed!");
+    fenceValue = 1;
+
+    // Create an event handle to use for frame synchronization.
+    fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    if (fenceEvent == nullptr)
+    {
+        throw(HRESULT_FROM_WIN32(GetLastError()));
+    }
+   
     //------------------------------------------------------------
     // Create Vertex Buffer :
     //------------------------------------------------------------
@@ -740,7 +843,7 @@ void initAssets()
 
 
 
-        { { -triscale - xoffset, triscale* aspectRatio - yoffset, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        { { -triscale - xoffset, triscale * aspectRatio - yoffset, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
         { { triscale - xoffset, triscale * aspectRatio - yoffset, triscale }, { uvscacle, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
         { { triscale - xoffset, -triscale * aspectRatio - yoffset, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
 
@@ -770,24 +873,32 @@ void initAssets()
 
     const UINT vertexBufferSize = sizeof(triangleVertices);
 
-    // Note: using upload heaps to transfer static data like vert buffers is not 
-    // recommended. Every time the GPU needs it, the upload heap will be marshalled 
-    // over. Please read up on Default Heap usage. An upload heap is used here for 
-    // code simplicity and because there are very few verts to actually transfer.
-
-    CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
+    CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_DEFAULT);
     auto desc = CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize);
 
     hr = pD3DDev->CreateCommittedResource(
         &heapProps,
         D3D12_HEAP_FLAG_NONE,
         &desc,
-        D3D12_RESOURCE_STATE_GENERIC_READ,
+        D3D12_RESOURCE_STATE_COPY_DEST,
         nullptr,
         IID_PPV_ARGS(&pVertexBuffer));
-    if (FAILED(hr)) 
+    if (FAILED(hr))
         throw("3DDevice->CreateCommittedResource() failed!");
 
+    UINT64 vbUploadOffset;
+    void* vbUploadPtr = spRingBuffer->allocate(0, vertexBufferSize,
+        D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT, &vbUploadOffset);
+
+    D3D12_SUBRESOURCE_DATA vData = {};
+    vData.pData = triangleVertices;
+    vData.RowPitch = vertexBufferSize;
+    vData.SlicePitch = vertexBufferSize;
+
+    CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(pVertexBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+    UpdateSubresources( pCommList.Get(), pVertexBuffer.Get(), spRingBuffer->getResource(), vbUploadOffset, 0, 1, &vData);
+    pCommList->ResourceBarrier(1, &barrier);
+/*
     // Copy the triangle data to the vertex buffer.
     UINT8* pVertexDataBegin;
     CD3DX12_RANGE readRange(0, 0);        // We do not intend to read from this resource on the CPU.
@@ -797,17 +908,12 @@ void initAssets()
 
     memcpy(pVertexDataBegin, triangleVertices, sizeof(triangleVertices));
     pVertexBuffer->Unmap(0, nullptr);
+*/
 
-    // Initialize the vertex buffer view.
+    // Initialize the vertex buffer view( default pool ).
     pVertexBufferView.BufferLocation = pVertexBuffer->GetGPUVirtualAddress();
     pVertexBufferView.StrideInBytes = sizeof(Vertex);
     pVertexBufferView.SizeInBytes = vertexBufferSize;
-
-    //------------------------------------------------------
-    // Create the command list.
-    hr = pD3DDev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, pCommAllocator.Get(), pPipelineState.Get(), IID_PPV_ARGS(&pCommList));
-    if (FAILED(hr))
-        throw("3DDevice->CreateCommandList() failed!");
 
     //  Generate textures
     DWORD* tmp = new DWORD[texDim * texDim];
@@ -929,35 +1035,12 @@ void initAssets()
     }
     createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 7);
 
-    // Close and execute command list
-    hr = pCommList->Close();
-    if (FAILED(hr))
-        throw("CommandList->Close() failed!");
-
-    ID3D12CommandList* ppCommandLists[] = { pCommList.Get() };
-    pCommQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
-
-    //createTexture( &textures[1], tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 1);
-
-    //hr = pCommList->Reset(pCommAllocator.Get(), pPipelineState.Get());
-
-    //----------------------------------------------
-    // Create fence
-    hr= pD3DDev->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&pFence));
-    if (FAILED(hr))
-        throw("3DDevice->CreateFence() failed!");
-    fenceValue = 1;
-
-    // Create an event handle to use for frame synchronization.
-    fenceEvent = CreateEvent( nullptr, FALSE, FALSE, nullptr );
-    if( fenceEvent == nullptr )
-    {
-        throw( HRESULT_FROM_WIN32( GetLastError() ) );
-    }
 
     // Wait for the command list to execute; we are reusing the same command 
     // list in our main loop but for now, we just want to wait for setup to 
     // complete before continuing.
+    if (!endCommandList())
+        exit(-1);
     WaitForPreviousFrame();
     
 }
