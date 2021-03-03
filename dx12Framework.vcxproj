@@ -144,6 +144,7 @@
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="ColDet.cpp" />
+    <ClCompile Include="DDSTextureLoader12.cpp" />
     <ClCompile Include="EntryPoint.cpp" />
     <ClCompile Include="gmath.cpp" />
     <ClCompile Include="Input.cpp" />
@@ -155,6 +156,7 @@
     <ClInclude Include="Camera.h" />
     <ClInclude Include="ColDet.h" />
     <ClInclude Include="d3dx12.h" />
+    <ClInclude Include="DDSTextureLoader12.h" />
     <ClInclude Include="gmath.h" />
     <ClInclude Include="Input.h" />
     <ClInclude Include="RingUploadBuffer.h" />

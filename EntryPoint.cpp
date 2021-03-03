@@ -3,6 +3,7 @@
 #include "util.h"
 #include "input.h"
 #include "RingUploadBuffer.h"
+#include "DDSTextureLoader12.h"
 
 //#include <d3d12.h>
 #include <d3d12sdklayers.h>
@@ -46,7 +47,6 @@ ComPtr< ID3D12CommandAllocator >    pCommAllocator;
 ComPtr< ID3D12GraphicsCommandList > pCommList;
 ComPtr< IDXGISwapChain3 >           pSwapChain;
 ComPtr< ID3D12DescriptorHeap >      pRTVHeap;
-ComPtr< ID3D12DescriptorHeap >      pCBVSrvHeap;
 ComPtr< ID3D12DescriptorHeap >      pDSVHeap;
 ComPtr< ID3D12DescriptorHeap >      pSRVHeap;
 ComPtr< ID3D12RootSignature >       pRootSignature;
@@ -58,10 +58,11 @@ ComPtr< ID3D12Resource >            textureUploads[16];
 
 std::shared_ptr<gRingUploadBuffer> spRingBuffer;
 
-
 // App resources
-ComPtr<ID3D12Resource> pVertexBuffer;
-D3D12_VERTEX_BUFFER_VIEW pVertexBufferView;
+ComPtr<ID3D12Resource> cpVertexBuffer;
+D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
+ComPtr<ID3D12Resource> cpIndexBuffer;
+D3D12_INDEX_BUFFER_VIEW indexBufferView;
 
 // Syncronization objects
 UINT frameIndex = 0;
@@ -71,25 +72,6 @@ UINT64 fenceValue;
 
 D3D12_VIEWPORT viewport;
 D3D12_RECT scissorRect;
-
-void WaitForCommandsComplete()
-{
-    HRESULT hr;
-
-    // Signal and increment the fence value.
-    static UINT64 commFenceValue;
-    constexpr UINT64 fence = 0xFFFFFFFFFFFFFFFE;
-    pCommQueue->Signal(pFence.Get(), fence);
-
-    // Wait until the previous frame is finished.
-    if (pFence->GetCompletedValue() < fence)
-    {
-        hr = pFence->SetEventOnCompletion(fence, fenceEvent);
-        if (FAILED(hr))
-            throw("Fence->SetEventOnCompletion() failed!");
-        WaitForSingleObject(fenceEvent, INFINITE);
-    }
-}
 
 void WaitForPreviousFrame()
 {
@@ -159,13 +141,15 @@ void PopulateCommandList()
  
 
     pCommList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    pCommList->IASetVertexBuffers(0, 1, &pVertexBufferView);
+    pCommList->IASetVertexBuffers(0, 1, &vertexBufferView);
+    pCommList->IASetIndexBuffer(&indexBufferView);
 
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 9; i++)
     {
         pCommList->SetGraphicsRootDescriptorTable(1, h);
         h.Offset(srvDescriptorSize);
-        pCommList->DrawInstanced(6, 2, i * 6, 0);
+        //pCommList->DrawInstanced(6, 2, i * 6, 0);
+        pCommList->DrawIndexedInstanced(6, 1, i * 6, 1, 0); // now indexed =)
     }
 
     //render 2nd quad
@@ -495,11 +479,96 @@ bool endCommandList()
     return true;
 }
 
-void createTexture( void* pixelData, UINT width, UINT height, BYTE pixelSize, DXGI_FORMAT format,
-    ComPtr<ID3D12DescriptorHeap> heap, UINT heapOffsetInDescriptors )
+void uploadSubresources(ID3D12Resource* pResource, UINT subResNum,
+    const D3D12_SUBRESOURCE_DATA* srDataArray)
+{
+    if (subResNum == 0)
+        return;
+
+    const UINT64 uploadBufferSize = GetRequiredIntermediateSize(pResource, 0, subResNum);
+
+    //upload To RingBuffer
+    UINT64 uploadOffset;
+    void* lpUploadPtr = spRingBuffer->allocate(0, uploadBufferSize,
+        D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, &uploadOffset);
+
+    if (!lpUploadPtr) // закончилась очередь загрузки
+    {
+        if (!endCommandList())
+            exit(-1);
+        WaitForPreviousFrame();
+        if (!beginCommandList())
+            exit(-1);
+
+        spRingBuffer->clearQueue();
+        lpUploadPtr = spRingBuffer->allocate(0, uploadBufferSize,
+            D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, &uploadOffset);
+
+        if (!lpUploadPtr)
+            exit(-1);
+    }
+
+    CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+        pResource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+    UpdateSubresources(pCommList.Get(), pResource, spRingBuffer->getResource(),
+        uploadOffset, 0, subResNum, srDataArray);
+    pCommList->ResourceBarrier(1, &barrier);
+}
+
+void createSRV(ID3D12Resource* pResourse, UINT heapOffsetInDescriptors)
+{
+    assert(pResourse != 0 && "null ID3D12Resource ptr!");
+
+    // Describe and create a SRV for the texture.
+    D3D12_RESOURCE_DESC desc = pResourse->GetDesc();
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Format = desc.Format;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = desc.MipLevels;
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE h = CD3DX12_CPU_DESCRIPTOR_HANDLE(pSRVHeap->GetCPUDescriptorHandleForHeapStart(),
+        heapOffsetInDescriptors, srvDescriptorSize);
+
+    pD3DDev->CreateShaderResourceView(pResourse, &srvDesc, h);
+}
+
+// Create Vertex, Index or Constants buffer
+ComPtr<ID3D12Resource> createBuffer(void* vdata, UINT64 size, ComPtr<ID3D12DescriptorHeap> heap, UINT heapOffsetInDescriptors)
+{
+    ComPtr<ID3D12Resource> cpResource;
+
+    CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_DEFAULT);
+    auto desc = CD3DX12_RESOURCE_DESC::Buffer(size);
+    HRESULT hr;
+
+    hr = pD3DDev->CreateCommittedResource(
+        &heapProps,
+        D3D12_HEAP_FLAG_NONE,
+        &desc,
+        D3D12_RESOURCE_STATE_COPY_DEST,
+        nullptr,
+        IID_PPV_ARGS(&cpResource));
+    if (FAILED(hr))
+        throw("3DDevice->CreateCommittedResource() failed!");
+
+    D3D12_SUBRESOURCE_DATA vData = {};
+    vData.pData = vdata;
+    vData.RowPitch = size;
+    vData.SlicePitch = size;
+
+    uploadSubresources( cpResource.Get(), 1, &vData );
+
+    return cpResource;
+}
+
+ComPtr<ID3D12Resource> createTexture( void* pixelData, UINT width, UINT height, 
+    BYTE pixelSize, DXGI_FORMAT format, ComPtr<ID3D12DescriptorHeap> heap,
+    UINT heapOffsetInDescriptors )
 {   
-    ComPtr<ID3D12Resource> texture; // = textures[heapOffsetInDescriptors].Get();
-    ComPtr<ID3D12Resource> textureUploadHeap; // = textureUploads[heapOffsetInDescriptors].Get();
+    CD3DX12_HEAP_PROPERTIES props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+    ComPtr<ID3D12Resource> texture; 
 
     // Describe and create a Texture2D.
     D3D12_RESOURCE_DESC textureDesc = {};
@@ -513,8 +582,6 @@ void createTexture( void* pixelData, UINT width, UINT height, BYTE pixelSize, DX
     textureDesc.SampleDesc.Quality = 0;
     textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
-    CD3DX12_HEAP_PROPERTIES props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-
     HRESULT hr = pD3DDev->CreateCommittedResource(
         &props,
         D3D12_HEAP_FLAG_NONE,
@@ -526,70 +593,15 @@ void createTexture( void* pixelData, UINT width, UINT height, BYTE pixelSize, DX
     if (FAILED(hr))
         throw("Cannot create texture!");
 
-    const UINT64 uploadBufferSize = GetRequiredIntermediateSize( texture.Get(), 0, 1 );
+    D3D12_SUBRESOURCE_DATA srData = {};
+    srData.pData = pixelData;
+    srData.RowPitch = width * pixelSize;
+    srData.SlicePitch = width * pixelSize;
 
-    //upload To RingBuffer
-    UINT64 uploadOffset;
-    void* lpUploadPtr = spRingBuffer->allocate(heapOffsetInDescriptors, uploadBufferSize,
-        D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, &uploadOffset);
+    uploadSubresources( texture.Get(), 1, &srData );
+    createSRV(texture.Get(), heapOffsetInDescriptors);
 
-    if (!lpUploadPtr) // закончилась очередь загрузки
-    {
-        if (!endCommandList())
-            exit(-1);
-        WaitForPreviousFrame();
-        if (!beginCommandList())
-            exit(-1);
-
-        spRingBuffer->clearQueue();
-        lpUploadPtr = spRingBuffer->allocate(heapOffsetInDescriptors, uploadBufferSize,
-            D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, &uploadOffset);
-        
-        if (!lpUploadPtr) 
-            exit(-1);
-    }
-    /*
-    props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-    CD3DX12_RESOURCE_DESC rdesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
-
-    // Create the GPU upload buffer.
-    hr = pD3DDev->CreateCommittedResource(
-        &props,
-        D3D12_HEAP_FLAG_NONE,
-        &rdesc,
-        D3D12_RESOURCE_STATE_GENERIC_READ,
-        nullptr,
-        IID_PPV_ARGS(&textureUploadHeap));
-    if (FAILED(hr))
-        throw("Cannot create upload buffer!");
-
-    */
-
-    D3D12_SUBRESOURCE_DATA textureData = {};
-    textureData.pData = pixelData;
-    textureData.RowPitch = width * pixelSize;
-    textureData.SlicePitch = textureData.RowPitch * height;
-
-    CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-
-    UpdateSubresources( pCommList.Get(), texture.Get(), spRingBuffer->getResource(), uploadOffset, 0, 1, &textureData);
-    pCommList->ResourceBarrier(1, &barrier);
-
-    // Describe and create a SRV for the texture.
-    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.Format = textureDesc.Format;
-    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MipLevels = 1;
-
-    CD3DX12_CPU_DESCRIPTOR_HANDLE h = CD3DX12_CPU_DESCRIPTOR_HANDLE(heap->GetCPUDescriptorHandleForHeapStart(),
-        heapOffsetInDescriptors, srvDescriptorSize);
-
-    pD3DDev->CreateShaderResourceView( texture.Get(), &srvDesc, h );
-
-    textures[heapOffsetInDescriptors] = texture;
-    textureUploads[heapOffsetInDescriptors] = textureUploadHeap;
-
+    return texture;
 }
 
 void initAssets()
@@ -598,7 +610,7 @@ void initAssets()
 
     // Create ring upload buffer
     spRingBuffer = std::make_shared < gRingUploadBuffer >(pD3DDev);
-    spRingBuffer->initialize(0xFFFFF);
+    spRingBuffer->initialize(0xFFFFFF);
 
     //----------------------------------------------
     //    Create the root signature.
@@ -760,7 +772,7 @@ void initAssets()
         exit(-1);
 
     //----------------------------------------------
-    // Create fence
+    // Create Fence
     //----------------------------------------------
     hr = pD3DDev->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&pFence));
     if (FAILED(hr))
@@ -783,6 +795,7 @@ void initAssets()
     const float xoffset = 0.5f;
     const float yoffset = xoffset * aspectRatio;
 
+    /*
     Vertex triangleVertices[] =
     {
 
@@ -870,50 +883,140 @@ void initAssets()
         { { -triscale + xoffset, -triscale * aspectRatio - yoffset, triscale }, { 0.0f, uvscacle }, { 0.0f, 1.0f, 0.0f, 1.0f } }
 
     };
+    */
+
+    Vertex triangleVertices[] =
+    {
+
+        { { -triscale - xoffset, triscale * aspectRatio + yoffset, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        { { triscale - xoffset, triscale * aspectRatio + yoffset, triscale }, { uvscacle, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+        { { triscale - xoffset, -triscale * aspectRatio + yoffset, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+
+        //{ { -triscale - xoffset, triscale * aspectRatio + yoffset, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        //{ { triscale - xoffset, -triscale * aspectRatio + yoffset, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+        { { -triscale - xoffset, -triscale * aspectRatio + yoffset, triscale }, { 0.0f, uvscacle }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+
+
+        { { -triscale , triscale * aspectRatio + yoffset, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        { { triscale , triscale * aspectRatio + yoffset, triscale }, { uvscacle, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+        { { triscale , -triscale * aspectRatio + yoffset, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+
+        //{ { -triscale , triscale * aspectRatio + yoffset, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        //{ { triscale , -triscale * aspectRatio + yoffset, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+        { { -triscale , -triscale * aspectRatio + yoffset, triscale }, { 0.0f, uvscacle }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+
+
+        { { -triscale + xoffset , triscale * aspectRatio + yoffset, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        { { triscale + xoffset, triscale * aspectRatio + yoffset, triscale }, { uvscacle, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+        { { triscale + xoffset, -triscale * aspectRatio + yoffset, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+
+        //{ { -triscale + xoffset, triscale * aspectRatio + yoffset, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        //{ { triscale + xoffset, -triscale * aspectRatio + yoffset, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+        { { -triscale + xoffset, -triscale * aspectRatio + yoffset, triscale }, { 0.0f, uvscacle }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+
+
+
+
+        { { -triscale - xoffset, triscale * aspectRatio, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        { { triscale - xoffset, triscale * aspectRatio, triscale }, { uvscacle, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+        { { triscale - xoffset, -triscale * aspectRatio, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+
+        //{ { -triscale - xoffset, triscale * aspectRatio, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        //{ { triscale - xoffset, -triscale * aspectRatio, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+        { { -triscale - xoffset, -triscale * aspectRatio, triscale }, { 0.0f, uvscacle }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+
+
+        { { -triscale , triscale * aspectRatio, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        { { triscale , triscale * aspectRatio, triscale }, { uvscacle, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+        { { triscale , -triscale * aspectRatio, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+
+        //{ { -triscale , triscale * aspectRatio, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        //{ { triscale , -triscale * aspectRatio, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+        { { -triscale , -triscale * aspectRatio, triscale }, { 0.0f, uvscacle }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+
+
+        { { -triscale + xoffset , triscale * aspectRatio, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        { { triscale + xoffset, triscale * aspectRatio, triscale }, { uvscacle, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+        { { triscale + xoffset, -triscale * aspectRatio, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+
+        //{ { -triscale + xoffset, triscale * aspectRatio, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        //{ { triscale + xoffset, -triscale * aspectRatio, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+        { { -triscale + xoffset, -triscale * aspectRatio, triscale }, { 0.0f, uvscacle }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+
+
+
+        { { -triscale - xoffset, triscale * aspectRatio - yoffset, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        { { triscale - xoffset, triscale * aspectRatio - yoffset, triscale }, { uvscacle, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+        { { triscale - xoffset, -triscale * aspectRatio - yoffset, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+
+        //{ { -triscale - xoffset, triscale * aspectRatio - yoffset, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        //{ { triscale - xoffset, -triscale * aspectRatio - yoffset, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+        { { -triscale - xoffset, -triscale * aspectRatio - yoffset, triscale }, { 0.0f, uvscacle }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+
+
+        { { -triscale , triscale * aspectRatio - yoffset, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        { { triscale , triscale * aspectRatio - yoffset, triscale }, { uvscacle, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+        { { triscale , -triscale * aspectRatio - yoffset, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+
+        //{ { -triscale , triscale * aspectRatio - yoffset, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        //{ { triscale , -triscale * aspectRatio - yoffset, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+        { { -triscale , -triscale * aspectRatio - yoffset, triscale }, { 0.0f, uvscacle }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+
+
+        { { -triscale + xoffset , triscale * aspectRatio - yoffset, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        { { triscale + xoffset, triscale * aspectRatio - yoffset, triscale }, { uvscacle, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+        { { triscale + xoffset, -triscale * aspectRatio - yoffset, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+
+        //{ { -triscale + xoffset, triscale * aspectRatio - yoffset, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        //{ { triscale + xoffset, -triscale * aspectRatio - yoffset, triscale }, { uvscacle, uvscacle }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+        { { -triscale + xoffset, -triscale * aspectRatio - yoffset, triscale }, { 0.0f, uvscacle }, { 0.0f, 1.0f, 0.0f, 1.0f } }
+
+    };
+
+    UINT16 triangleIndexes[] =
+    {
+        0,1,2,      0,2,3,
+        4,5,6,      4,6,7,
+
+        8,9,10,     8,10,11,
+        12,13,14,   12,14,15,
+
+        16,17,18,   16,18,19,
+        20,21,22,   20,22,23,
+
+        24,25,26,   24,26,27,
+        28,29,30,   28,30,31,
+
+        32,33,34,   32,34,35,
+        36,37,38,   36,38,39,
+
+        40,41,42,   40,42,43,
+        44,45,46,   44,46,47,
+
+        48,49,50,   48,50,51,
+        52,53,54,   52,54,55,
+
+        56,57,58,   56,58,59,
+        60,61,62,   60,62,63,
+
+        64,65,66,   64,66,67,
+        68,69,70,   68,70,71
+    };
 
     const UINT vertexBufferSize = sizeof(triangleVertices);
-
-    CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_DEFAULT);
-    auto desc = CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize);
-
-    hr = pD3DDev->CreateCommittedResource(
-        &heapProps,
-        D3D12_HEAP_FLAG_NONE,
-        &desc,
-        D3D12_RESOURCE_STATE_COPY_DEST,
-        nullptr,
-        IID_PPV_ARGS(&pVertexBuffer));
-    if (FAILED(hr))
-        throw("3DDevice->CreateCommittedResource() failed!");
-
-    UINT64 vbUploadOffset;
-    void* vbUploadPtr = spRingBuffer->allocate(0, vertexBufferSize,
-        D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT, &vbUploadOffset);
-
-    D3D12_SUBRESOURCE_DATA vData = {};
-    vData.pData = triangleVertices;
-    vData.RowPitch = vertexBufferSize;
-    vData.SlicePitch = vertexBufferSize;
-
-    CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(pVertexBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-    UpdateSubresources( pCommList.Get(), pVertexBuffer.Get(), spRingBuffer->getResource(), vbUploadOffset, 0, 1, &vData);
-    pCommList->ResourceBarrier(1, &barrier);
-/*
-    // Copy the triangle data to the vertex buffer.
-    UINT8* pVertexDataBegin;
-    CD3DX12_RANGE readRange(0, 0);        // We do not intend to read from this resource on the CPU.
-    hr = pVertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
-    if (FAILED(hr))
-        throw("VertexBuffer->Map() failed!");
-
-    memcpy(pVertexDataBegin, triangleVertices, sizeof(triangleVertices));
-    pVertexBuffer->Unmap(0, nullptr);
-*/
-
+    cpVertexBuffer = createBuffer(triangleVertices, vertexBufferSize, pSRVHeap, 10);
+    
     // Initialize the vertex buffer view( default pool ).
-    pVertexBufferView.BufferLocation = pVertexBuffer->GetGPUVirtualAddress();
-    pVertexBufferView.StrideInBytes = sizeof(Vertex);
-    pVertexBufferView.SizeInBytes = vertexBufferSize;
+    vertexBufferView.BufferLocation = cpVertexBuffer->GetGPUVirtualAddress();
+    vertexBufferView.StrideInBytes = sizeof(Vertex);
+    vertexBufferView.SizeInBytes = vertexBufferSize;
+
+    // Initialize index buffer
+    const UINT indexBufferSize = sizeof(triangleIndexes);
+    cpIndexBuffer = createBuffer(triangleIndexes, indexBufferSize, pSRVHeap, 11);
+    indexBufferView.BufferLocation = cpIndexBuffer->GetGPUVirtualAddress();
+    indexBufferView.SizeInBytes = indexBufferSize;
+    indexBufferView.Format = DXGI_FORMAT_R16_UINT;
 
     //  Generate textures
     DWORD* tmp = new DWORD[texDim * texDim];
@@ -928,7 +1031,8 @@ void initAssets()
             tmp[index] = val;
         }
     }
-    createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 0);
+    textures[0] = createTexture(tmp, texDim, texDim, sizeof(DWORD), 
+        DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 0);
 
     for (int i = 0; i < texDim; i++)
     {
@@ -940,7 +1044,7 @@ void initAssets()
             tmp[index] = val;
         }
     }
-    createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 1);
+    textures[1] = createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 1);
 
     for (int i = 0; i < texDim; i++)
     {
@@ -952,7 +1056,7 @@ void initAssets()
             tmp[index] = val;
         }
     }
-    createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 2);
+    textures[2] = createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 2);
 
 
 
@@ -966,7 +1070,7 @@ void initAssets()
             tmp[index] = val;
         }
     }
-    createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 3);
+    textures[3] = createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 3);
 
     for (int i = 0; i < texDim; i++)
     {
@@ -979,7 +1083,7 @@ void initAssets()
             tmp[index] = val;
         }
     }
-    createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 4);
+    textures[4] = createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 4);
 
 
     for (int i = 0; i < texDim; i++)
@@ -993,7 +1097,7 @@ void initAssets()
             tmp[index] = val;
         }
     }
-    createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 5);
+    textures[5] = createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 5);
 
     //create spiral
     memset( tmp, 0xFFFFFFFF, texDim * texDim * sizeof(DWORD));
@@ -1012,30 +1116,36 @@ void initAssets()
             tmp[y * texDim + x] = 0;
         }
     }
-    createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 6);
+    textures[6] = createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 6);
 
-    //create waves
-    memset(tmp, 0xFFFFFFFF, texDim * texDim * sizeof(DWORD));
-    const float sinScale = 5;
-    const float cosScale = 5;
-
-    for (int i = 0; i < texDim; i++)
+    //Test load dds:
     {
-        for (int j = 0; j < texDim; j++)
-        {
-            int index = j + i * texDim;
+        std::unique_ptr<uint8_t[]> ddsData;
+        std::vector<D3D12_SUBRESOURCE_DATA> subResDataVector;
+        ID3D12Resource* pResource;
 
-            unsigned char s = (int)( sinf( ( (float)i / (float)texDim ) * sinScale) + 1.f ) * 127.5f;
-            unsigned char c = (int) ( cosf( ( (float)j / (float)texDim ) * cosScale) + 1.f ) * 127.5f;
+        HRESULT tlResult = LoadDDSTextureFromFile(pD3DDev.Get(), L"island_v1_tex.dds",
+            &pResource, ddsData, subResDataVector);
 
-            val =  ( (UINT)s ) << 8;
+        uploadSubresources(pResource, subResDataVector.size(), &subResDataVector[0]);
+        createSRV(pResource, 7);
 
-            tmp[index] = val;
-        }
+        textures[7] = pResource;
     }
-    createTexture(tmp, texDim, texDim, sizeof(DWORD), DXGI_FORMAT_R8G8B8A8_UNORM, pSRVHeap, 7);
+    {
+        std::unique_ptr<uint8_t[]> ddsData;
+        std::vector<D3D12_SUBRESOURCE_DATA> subResDataVector;
+        ID3D12Resource* pResource;
+        
+        HRESULT tlResult = LoadDDSTextureFromFile(pD3DDev.Get(), L"lizard_diff.dds",
+            &pResource, ddsData, subResDataVector);
 
+        uploadSubresources(pResource, subResDataVector.size(), &subResDataVector[0]);
+        createSRV(pResource, 8);
 
+        textures[8] = pResource;
+    }
+    
     // Wait for the command list to execute; we are reusing the same command 
     // list in our main loop but for now, we just want to wait for setup to 
     // complete before continuing.
