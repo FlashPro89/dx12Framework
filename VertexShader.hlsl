@@ -31,8 +31,9 @@ VS_OUTPUT main(VS_INPUT input)
 	//output.pos.x = cos(myCBuffer.rot.x) * sqrt(input.pos.x* input.pos.x + input.pos.y* input.pos.y );
 	//output.pos.y = sin(myCBuffer.rot.x) * sqrt(input.pos.x * input.pos.x + input.pos.y * input.pos.y);
 
-	output.pos.xy += myCBuffer.pos.xy;
 	output.pos.xy *= myCBuffer.rot.xy;
+	output.pos.xy += myCBuffer.pos.xy;
+
 
 	output.texCoord = input.texCoord;
 	output.color = input.color;

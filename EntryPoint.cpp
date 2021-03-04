@@ -43,6 +43,7 @@ UINT dsvDescriptorSize = 0;
 UINT srvDescriptorSize = 0;
 
 D3D_DRIVER_TYPE                     driverType = D3D_DRIVER_TYPE_NULL;
+ComPtr< IDXGIAdapter4 >             pAdapter4;
 ComPtr< ID3D12Device >              pD3DDev;
 ComPtr< ID3D12CommandQueue >        pCommQueue;
 ComPtr< ID3D12CommandAllocator >    pCommAllocator;
@@ -350,6 +351,9 @@ void initDX12()
 	hardwareAdapter->GetDesc1(&description);
 	///wnd_setTitle( (const char*)description.Description );
 
+    hr = hardwareAdapter->QueryInterface(IID_PPV_ARGS(&pAdapter4));
+    if (FAILED(hr))
+        throw("Cannot query interface IDXGIAdapter4!");
 	//-------------------------------------------------------------
 
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
@@ -634,6 +638,10 @@ void initAssets()
 {
     HRESULT hr;
 
+    DXGI_QUERY_VIDEO_MEMORY_INFO infoLocal, infoUnLocal, infoLocalAfter, infoUnLocalAfter;
+    hr = pAdapter4->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &infoLocal);
+    hr = pAdapter4->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &infoUnLocal);
+
     // Create ring upload buffer
     spRingBuffer = std::make_shared < gRingUploadBuffer >(pD3DDev);
     spRingBuffer->initialize(0xFFFFFF);
@@ -692,36 +700,6 @@ void initAssets()
         sampler[0].ShaderRegister = 0;
         sampler[0].RegisterSpace = 0;
         sampler[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-
-        /*
-        sampler[1].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-        sampler[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-        sampler[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-        sampler[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-        sampler[1].MipLODBias = 0;
-        sampler[1].MaxAnisotropy = 0;
-        sampler[1].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-        sampler[1].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
-        sampler[1].MinLOD = 0.0f;
-        sampler[1].MaxLOD = D3D12_FLOAT32_MAX;
-        sampler[1].ShaderRegister = 0;
-        sampler[1].RegisterSpace = 0;
-        sampler[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-
-        sampler[2].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-        sampler[2].AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-        sampler[2].AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-        sampler[2].AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-        sampler[2].MipLODBias = 0;
-        sampler[2].MaxAnisotropy = 0;
-        sampler[2].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-        sampler[2].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
-        sampler[2].MinLOD = 0.0f;
-        sampler[2].MaxLOD = D3D12_FLOAT32_MAX;
-        sampler[2].ShaderRegister = 0;
-        sampler[2].RegisterSpace = 0;
-        sampler[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-        */
 
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
         rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 1, sampler, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
@@ -1176,12 +1154,31 @@ void initAssets()
         textures[8] = pResource;
     }
     
+    //---------------------------------------
+    // Test reserved resource
+    //---------------------------------------
+    ID3D12Resource* pReservedResource;
+    auto reservedDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UINT, 2048, 2048);
+    reservedDesc.Layout = D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE;
+    hr = pD3DDev->CreateReservedResource(
+        &reservedDesc,
+        D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COPY_DEST,
+        nullptr,
+        IID_PPV_ARGS(&pReservedResource)
+    );
+    createSRVTex2D(pReservedResource, 13);
+    textures[13] = pReservedResource;
+
+
     // Wait for the command list to execute; we are reusing the same command 
     // list in our main loop but for now, we just want to wait for setup to 
     // complete before continuing.
     if (!endCommandList())
         exit(-1);
     WaitForPreviousFrame();
+
+    hr = pAdapter4->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &infoLocalAfter);
+    hr = pAdapter4->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &infoUnLocalAfter);
     
 }
 
