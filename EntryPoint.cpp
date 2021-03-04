@@ -75,7 +75,7 @@ UINT64 fenceValue;
 D3D12_VIEWPORT viewport;
 D3D12_RECT scissorRect;
 
-float cBuffer[4] = { 0.f, 0.f, 0.f, 0.f };
+float cBuffer[4] = { 0.f, 0.f, 0.5f , 0.5f };
 
 void WaitForPreviousFrame()
 {
@@ -206,6 +206,18 @@ bool frame_move()
 
     if (input->isKeyPressed(DIK_DOWN))
         cBuffer[1] -= dt * speed;
+
+    if (input->isKeyPressed(DIK_W))
+        cBuffer[3] += dt * speed;
+
+    if (input->isKeyPressed(DIK_S))
+        cBuffer[3] -= dt * speed;
+
+    if (input->isKeyPressed(DIK_A))
+        cBuffer[2] -= dt * speed;
+
+    if (input->isKeyPressed(DIK_D))
+        cBuffer[2] += dt * speed;
 
 	return true;
 }
@@ -671,7 +683,8 @@ void initAssets()
         sampler[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
         sampler[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
         sampler[0].MipLODBias = 0;
-        sampler[0].MaxAnisotropy = 0;
+        sampler[0].MaxAnisotropy = 16;
+        sampler[0].Filter = D3D12_FILTER::D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
         sampler[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
         sampler[0].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
         sampler[0].MinLOD = 0.0f;
@@ -808,8 +821,8 @@ void initAssets()
     //------------------------------------------------------------
     // Define the geometry for a triangle.
     const float uvscacle = 1.f;
-    const float triscale = 0.2f;
-    const float xoffset = 0.5f;
+    const float triscale = 0.49f;
+    const float xoffset = 1.0f;
     const float yoffset = xoffset * aspectRatio;
 
     /*
