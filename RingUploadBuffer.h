@@ -17,9 +17,15 @@
 //using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
+#ifdef _WIN64
+typedef  UINT64 ADDRESS;
+#else
+typedef UINT32 ADDRESS;
+#endif
+
 struct RingUploadResourceBufferOffset
 {
-	RingUploadResourceBufferOffset(UINT _frameId, UINT64 _offset, UINT64 _size )
+	RingUploadResourceBufferOffset(UINT _frameId, ADDRESS _offset, ADDRESS _size )
 	{
 		frameId = _frameId; resourceStartOffset = _offset; resourceEndOffset = _offset + _size - 1;
 	};
@@ -36,9 +42,9 @@ public:
 	gRingUploadBuffer(ComPtr<ID3D12Device> cpDevice);
 	~gRingUploadBuffer();
 
-	bool initialize( UINT64 uploadBufferSize );
-	void* allocate( UINT frameId, UINT64 size, UINT align, UINT64* pOutOffset = nullptr );
-	UINT64 getAvailableAllocationSize(UINT align) const;
+	bool initialize( ADDRESS uploadBufferSize );
+	void* allocate( UINT frameId, ADDRESS size, ADDRESS align, UINT64* pOutOffset = nullptr );
+	UINT64 getAvailableAllocationSize(ADDRESS align) const;
 
 	void frameEnded( UINT frameId ); // free allocations linked with frame id and previous frames id
 	void clearQueue();

@@ -1,14 +1,12 @@
 #include "RingUploadBuffer.h"
 #include <assert.h>
 
-
-UINT64 _align(UINT64 uLocation, UINT uAlign)
+ADDRESS _align( ADDRESS uLocation, ADDRESS uAlign )
 {
     if ((0 == uAlign) || (uAlign & (uAlign - 1)))
     {
         assert( true && "non-pow2 alignment" );
     }
-
     return ((uLocation + (uAlign - 1)) & ~(uAlign - 1));
 }
 
@@ -43,7 +41,7 @@ bool gRingUploadBuffer::initialize( UINT64 uploadBufferSize )
 	return true;
 }
 
-void* gRingUploadBuffer::allocate( UINT frameId, UINT64 size, UINT align, UINT64* pOutOffset)
+void* gRingUploadBuffer::allocate( UINT frameId, ADDRESS size, ADDRESS align, ADDRESS* pOutOffset)
 {
     void* lp = 0;
     
@@ -76,7 +74,7 @@ void* gRingUploadBuffer::allocate( UINT frameId, UINT64 size, UINT align, UINT64
     return lp;
 }
 
-UINT64 gRingUploadBuffer::getAvailableAllocationSize(UINT align) const
+UINT64 gRingUploadBuffer::getAvailableAllocationSize(ADDRESS align) const
 {
     UINT64 _firstByte = reinterpret_cast<size_t>(m_lpMappedData);
     UINT64 _currentPos = m_uploadsQueue.empty() ? 0 : m_uploadsQueue.back().resourceEndOffset;

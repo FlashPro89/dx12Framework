@@ -38,9 +38,9 @@ const float aspectRatio = (float)width / (float)height;
 std::shared_ptr<gInput> input;
 std::shared_ptr<gTimer> timer;
 
-size_t rtvDescriptorSize = 0;
-size_t dsvDescriptorSize = 0;
-size_t srvDescriptorSize = 0;
+UINT rtvDescriptorSize = 0;
+UINT dsvDescriptorSize = 0;
+UINT srvDescriptorSize = 0;
 
 D3D_DRIVER_TYPE                     driverType = D3D_DRIVER_TYPE_NULL;
 ComPtr< ID3D12Device >              pD3DDev;
@@ -136,7 +136,11 @@ void PopulateCommandList()
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(pRTVHeap->GetCPUDescriptorHandleForHeapStart(), frameIndex, rtvDescriptorSize);
     CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(pDSVHeap->GetCPUDescriptorHandleForHeapStart());
    
+    //With DS
     pCommList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
+
+    // Without DS
+    //pCommList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 
     // Record commands.
     const float clearColor[] = { 0.0f, 0.4f, 0.2f, 1.0f };
@@ -499,12 +503,16 @@ void uploadSubresources(ID3D12Resource* pResource, UINT subResNum,
     if (subResNum == 0)
         return;
 
-    const UINT64 uploadBufferSize = GetRequiredIntermediateSize(pResource, 0, subResNum);
+    const ADDRESS uploadBufferSize = GetRequiredIntermediateSize(pResource, 0, subResNum);
+
+    auto desc = pResource->GetDesc();
+    auto aligment = desc.Alignment;
+    auto old = D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT; //??
 
     //upload To RingBuffer
-    UINT64 uploadOffset;
+    ADDRESS uploadOffset;
     void* lpUploadPtr = spRingBuffer->allocate(0, uploadBufferSize,
-        D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, &uploadOffset);
+        aligment, &uploadOffset);
 
     if (!lpUploadPtr) // закончилась очередь загрузки
     {
@@ -516,7 +524,7 @@ void uploadSubresources(ID3D12Resource* pResource, UINT subResNum,
 
         spRingBuffer->clearQueue();
         lpUploadPtr = spRingBuffer->allocate(0, uploadBufferSize,
-            D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, &uploadOffset);
+            aligment, &uploadOffset);
 
         if (!lpUploadPtr)
             exit(-1);
@@ -755,7 +763,7 @@ void initAssets()
     psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
     psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
     psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-    psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+    psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT; 
     psoDesc.SampleMask = UINT_MAX;
     psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     psoDesc.NumRenderTargets = 1;
@@ -1136,7 +1144,7 @@ void initAssets()
         HRESULT tlResult = LoadDDSTextureFromFile(pD3DDev.Get(), L"island_v1_tex.dds",
             &pResource, ddsData, subResDataVector);
 
-        uploadSubresources(pResource, subResDataVector.size(), &subResDataVector[0]);
+        uploadSubresources(pResource, static_cast<UINT>(subResDataVector.size()), &subResDataVector[0]);
         createSRVTex2D(pResource, 7);
 
         textures[7] = pResource;
@@ -1149,7 +1157,7 @@ void initAssets()
         HRESULT tlResult = LoadDDSTextureFromFile(pD3DDev.Get(), L"lizard_diff.dds",
             &pResource, ddsData, subResDataVector);
 
-        uploadSubresources(pResource, subResDataVector.size(), &subResDataVector[0]);
+        uploadSubresources(pResource, static_cast<UINT>(subResDataVector.size()), &subResDataVector[0]);
         createSRVTex2D(pResource, 8);
 
         textures[8] = pResource;
