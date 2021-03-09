@@ -156,3 +156,5 @@ void gInput::update()
 	hr = m_pKeyboard->GetDeviceState( sizeof( m_keyboardOld ), (void*)m_keyboardOld );
 	hr = m_pMouse->GetDeviceState( sizeof( m_mouseOld ), (void*)&m_mouseOld );
 }
+
+#pragma warning( default : 4800 )

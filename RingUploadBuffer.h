@@ -43,7 +43,7 @@ public:
 	~gRingUploadBuffer();
 
 	bool initialize( ADDRESS uploadBufferSize );
-	void* allocate( UINT frameId, ADDRESS size, ADDRESS align, UINT64* pOutOffset = nullptr );
+	void* allocate( UINT frameId, ADDRESS size, ADDRESS align, ADDRESS* pOutOffset = nullptr );
 	UINT64 getAvailableAllocationSize(ADDRESS align) const;
 
 	void frameEnded( UINT frameId ); // free allocations linked with frame id and previous frames id

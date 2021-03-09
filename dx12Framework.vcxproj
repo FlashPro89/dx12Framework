@@ -148,23 +148,26 @@
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="ColDet.cpp" />
     <ClCompile Include="DDSTextureLoader12.cpp" />
+    <ClCompile Include="DX12Framework.cpp" />
     <ClCompile Include="EntryPoint.cpp" />
     <ClCompile Include="gmath.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="RingUploadBuffer.cpp" />
+    <ClCompile Include="TiledResourcesSample.cpp" />
     <ClCompile Include="Timer.cpp" />
-    <ClCompile Include="util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="ColDet.h" />
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="DDSTextureLoader12.h" />
+    <ClInclude Include="DX12Framework.h" />
+    <ClInclude Include="DX12MeshGenerator.h" />
     <ClInclude Include="gmath.h" />
     <ClInclude Include="Input.h" />
     <ClInclude Include="RingUploadBuffer.h" />
+    <ClInclude Include="TiledResourcesSample.h" />
     <ClInclude Include="Timer.h" />
-    <ClInclude Include="util.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="PixelShader.hlsl">

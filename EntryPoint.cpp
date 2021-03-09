@@ -5,6 +5,7 @@
 #include "Timer.h"
 #include "RingUploadBuffer.h"
 #include "DDSTextureLoader12.h"
+#include "TiledResourcesSample.h"
 
 //#include <d3d12.h>
 #include <d3d12sdklayers.h>
@@ -78,6 +79,7 @@ D3D12_RECT scissorRect;
 
 float cBuffer[4] = { 0.f, 0.f, 0.5f , 0.5f };
 
+/*
 void WaitForPreviousFrame()
 {
     HRESULT hr;
@@ -301,6 +303,8 @@ void GetHardwareAdapter(
     *ppAdapter = adapter.Detach();
 }
 
+*/
+/*
 void initDX12()
 {
     viewport.TopLeftX = viewport.TopLeftY = 0;
@@ -466,7 +470,7 @@ void initDX12()
             CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(pDSVHeap->GetCPUDescriptorHandleForHeapStart());
             //pD3DDev->CreateDepthStencilView(pDepthStencil.Get(), &depthStencilDesc, dsvHandle );
 
-            //   /*
+            
             hr = pD3DDev->CreateCommittedResource(
                 &props,
                 D3D12_HEAP_FLAG_NONE,
@@ -474,7 +478,7 @@ void initDX12()
                 D3D12_RESOURCE_STATE_DEPTH_WRITE,
                 &depthOptimizedClearValue,
                 IID_PPV_ARGS(&pDepthStencil) );
-           //   */
+           
             
 
             if (FAILED(hr))
@@ -491,6 +495,9 @@ void initDX12()
         throw("Cannot make D3D12 command allcator!");
 }
 
+*/
+
+/*
 bool beginCommandList()
 {
     HRESULT hr;
@@ -803,8 +810,8 @@ void initAssets()
     const float xoffset = 1.0f;
     const float yoffset = xoffset * aspectRatio;
 
-    /*
-    Vertex triangleVertices[] =
+    
+    Vertex triangleNonIndexedVertices[] =
     {
 
         { { -triscale - xoffset, triscale * aspectRatio + yoffset, triscale }, { 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
@@ -891,7 +898,7 @@ void initAssets()
         { { -triscale + xoffset, -triscale * aspectRatio - yoffset, triscale }, { 0.0f, uvscacle }, { 0.0f, 1.0f, 0.0f, 1.0f } }
 
     };
-    */
+    
 
     Vertex triangleVertices[] =
     {
@@ -1169,6 +1176,14 @@ void initAssets()
     createSRVTex2D(pReservedResource, 13);
     textures[13] = pReservedResource;
 
+    UINT numTiles = 0;
+    D3D12_PACKED_MIP_INFO packedMipInfo;
+    D3D12_TILE_SHAPE tileShape;
+    UINT subresourceCount = reservedDesc.MipLevels;
+    std::vector<D3D12_SUBRESOURCE_TILING> tilings(subresourceCount);
+    pD3DDev->GetResourceTiling(pReservedResource, &numTiles, &packedMipInfo,
+        &tileShape, &subresourceCount, 0, &tilings[0]);
+
 
     // Wait for the command list to execute; we are reusing the same command 
     // list in our main loop but for now, we just want to wait for setup to 
@@ -1205,8 +1220,11 @@ void init()
     wnd_update();
 }
 
+*/
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 {
+    /*
 	try
 	{
 		init();
@@ -1236,6 +1254,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine,
 			MB_OK | MB_ICONERROR | MB_SYSTEMMODAL);
 	}
 	cleanUp();
+    */
+
+    TiledResourcesSample sample("TiledResourceSample");
+    DX12Framework::run(&sample);
 
 	return 0;
 }

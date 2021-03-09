@@ -21,7 +21,7 @@ gRingUploadBuffer::~gRingUploadBuffer()
 
 }
 
-bool gRingUploadBuffer::initialize( UINT64 uploadBufferSize )
+bool gRingUploadBuffer::initialize( ADDRESS uploadBufferSize )
 {
     CD3DX12_HEAP_PROPERTIES props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
     CD3DX12_RESOURCE_DESC rdesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
