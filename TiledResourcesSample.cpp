@@ -2,7 +2,7 @@
 #include "DX12MeshGenerator.h"
 #include "DDSTextureLoader12.h"
 
-float cb[4] = { 0,0, 0.5f,0 };
+XMMATRIX mWVP;
 
 // ------------------------------------
 //
@@ -47,7 +47,11 @@ bool TiledResourcesSample::initialize()
 		return false;
 	if (!initInput())
 		return false;
-
+    m_spCamera = std::make_shared<gCamera>(m_spInput.get());
+    m_spCamera->setPosition(XMFLOAT3(0, 0, -10.f));
+    m_spCamera->lookAt(XMFLOAT3(0, 0, 0));
+    m_spCamera->setMovementSpeed(5.f);
+        
     if (!createRootSignatureAndPSO())
         return false;
 
@@ -148,7 +152,7 @@ bool TiledResourcesSample::initialize()
 
     m_vb.BufferLocation = m_cpVB->GetGPUVirtualAddress();
     m_vb.SizeInBytes = offs.vDataSize;
-    m_vb.StrideInBytes = 44; // 32bytes stride
+    m_vb.StrideInBytes = 44; // 44bytes stride
 
     m_ib.BufferLocation = m_cpIB->GetGPUVirtualAddress();
     m_ib.SizeInBytes = offs.iDataSize;
@@ -220,9 +224,15 @@ bool TiledResourcesSample::populateCommandList()
     m_cpCommList->IASetVertexBuffers(0, 1, &m_vb);
     m_cpCommList->IASetIndexBuffer(&m_ib);
 
+    XMFLOAT4X4 mvp;
+    XMStoreFloat4x4(&mvp, mWVP);
+
     m_cpCommList->SetGraphicsRootDescriptorTable(1, h);
-    m_cpCommList->SetGraphicsRoot32BitConstants(0, 4, cb, 0);
-    m_cpCommList->DrawIndexedInstanced(32, 1, 0, 0, 0);
+    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &mvp, 0);
+
+    //int face = 2;
+    //m_cpCommList->DrawIndexedInstanced(6, 1, face*6, 0, 0);
+    m_cpCommList->DrawIndexedInstanced(36, 1, 0, 0, 0);
 
     // Indicate that the back buffer will now be used to present.
     barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_cpRenderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
@@ -258,27 +268,22 @@ bool TiledResourcesSample::executeCommandListAndPresent()
 
 bool TiledResourcesSample::update()
 {
-    if (m_spInput)
-        m_spInput->update();
-
     constexpr float speed = 0.5f;
     float dt = m_spTimer->getDelta();
 
-    if (m_spInput->isKeyPressed(DIK_W))
-        cb[2] += dt * speed;
-    if (m_spInput->isKeyPressed(DIK_S))
-        cb[2] -= dt * speed;
+    if (m_spInput)
+        m_spInput->update();
 
-    if (m_spInput->isKeyPressed(DIK_LEFT))
-        cb[0] -= dt * speed;
-    if (m_spInput->isKeyPressed(DIK_RIGHT))
-        cb[0] += dt * speed;
+    if (m_spCamera)
+        m_spCamera->tick(dt);
 
-    if (m_spInput->isKeyPressed(DIK_UP))
-        cb[1] += dt * speed;
-    if (m_spInput->isKeyPressed(DIK_DOWN))
-        cb[1] -= dt * speed;
+    mWVP = m_spCamera->getViewProjMatrix();
+    mWVP = XMMatrixTranspose(mWVP);
 
+    //XMFLOAT3 eye(-10.f, -10.f, -10.f), dir(1.f, 1.f, 1.f), up(0, 1.f, 0);
+    //XMMATRIX mView = XMMatrixLookToLH(XMLoadFloat3(&eye), XMVector3Normalize( XMLoadFloat3(&dir)), XMLoadFloat3(&up));
+    //XMMATRIX mProj = XMMatrixPerspectiveFovLH(3.1415f / 4, 1.333f, 1.f, 1500.0f);
+    //mWVP = mView * mProj;
 	return true;
 }
 
@@ -315,7 +320,7 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
     ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
 
     CD3DX12_ROOT_PARAMETER1 rootParameters[2];
-    rootParameters[0].InitAsConstants(4, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
+    rootParameters[0].InitAsConstants(16, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
     rootParameters[1].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_PIXEL);
 
     D3D12_STATIC_SAMPLER_DESC sampler[1] = {};
@@ -375,14 +380,15 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
 
         "struct sConstantBuffer                 "
         "{                                      "
-        "    float4 pos;                        "
+        "    float4x4 wvpMat;                   "
         "};                                     "
         "ConstantBuffer<sConstantBuffer> myCBuffer : register(b0); "
         "VS_OUTPUT main(VS_INPUT input)         "
         "{                                      "
-        "   VS_OUTPUT output;                   "
-        "   output.pos = input.pos; "
-        "   output.pos.xyz += myCBuffer.pos.xyz; "
+        "   VS_OUTPUT output; "
+        "   float4 tPos = input.pos;"
+        "   tPos.w = 1.0f;"
+        "   output.pos = mul(tPos, myCBuffer.wvpMat); "
         "   output.texCoord = input.texCoord;  "
         "   return output;                     "
         "}";
@@ -430,7 +436,8 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
     psoDesc.VS = { reinterpret_cast<UINT8*>(vertexShader->GetBufferPointer()), vertexShader->GetBufferSize() };
     psoDesc.PS = { reinterpret_cast<UINT8*>(pixelShader->GetBufferPointer()), pixelShader->GetBufferSize() };
     psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-    psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+    psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+    psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
     psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
     psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
     psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;

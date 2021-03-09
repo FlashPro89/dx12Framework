@@ -14,12 +14,11 @@ struct VS_OUTPUT
 
 struct sConstantBuffer
 {
-	//float4x4 wvpMat;
-	float2 pos;
-	float2 rot;
+	float4x4 wvpMat;
 };
 
 ConstantBuffer<sConstantBuffer> myCBuffer : register(b0);
+
 
 VS_OUTPUT main(VS_INPUT input)
 {
@@ -31,8 +30,8 @@ VS_OUTPUT main(VS_INPUT input)
 	//output.pos.x = cos(myCBuffer.rot.x) * sqrt(input.pos.x* input.pos.x + input.pos.y* input.pos.y );
 	//output.pos.y = sin(myCBuffer.rot.x) * sqrt(input.pos.x * input.pos.x + input.pos.y * input.pos.y);
 
-	output.pos.xy *= myCBuffer.rot.xy;
-	output.pos.xy += myCBuffer.pos.xy;
+	//output.pos.xy *= myCBuffer.rot.xy;
+	//output.pos.xy += myCBuffer.pos.xy;
 
 
 	output.texCoord = input.texCoord;

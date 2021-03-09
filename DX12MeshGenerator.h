@@ -232,7 +232,7 @@ public:
 		else
 		{
 			WORD* iDataCursour = reinterpret_cast<WORD*>(idata);
-			for (int i = 0; i < 36; i += 3)
+			for (int i = 0; i < 36; i += 4)
 			{
 				*iDataCursour++ = i;
 				*iDataCursour++ = i + 1;

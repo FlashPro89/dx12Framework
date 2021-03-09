@@ -336,7 +336,8 @@ void gCamera::recompMatrices()
 
 	//D3DXVec3TransformCoord(&dir, &dir, &rot);
 	dir = XMVector3Transform( dir, rot );
-	dir += m_pos;
+	dir -= m_pos;
+	dir = XMVector3Normalize(dir);
 	//XMMATRIXLookAtLH( &m_mview, &m_pos, &dir, &XMFLOAT3(0, 1.0f, 0) );
 	m_mview = XMMatrixLookAtLH(m_pos, dir, up);
 
