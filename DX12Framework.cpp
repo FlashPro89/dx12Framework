@@ -1,4 +1,5 @@
 #include "DX12Framework.h"
+#include <thread>
 
 #pragma comment( lib , "d3d12.lib" )
 #pragma comment( lib , "d3dcompiler.lib" )
@@ -46,11 +47,12 @@ void DX12Framework::DX12Window::setWindowParameters( const DX12WINDOWPARAMS& par
     RECT rect;
     adjustRect(rect);
 
-    HWND hWnd = static_cast<HWND>(m_parameters.handle);
+    HWND hWnd = m_parameters.handle;
 
     if (!parameters.fullscreen)
     {
-        SetWindowPos(hWnd, 0, rect.left, rect.top, rect.right, rect.bottom, SWP_NOZORDER);
+        SetWindowPos(hWnd, 0, m_parameters.x, m_parameters.y, 
+            rect.right - rect.left, rect.bottom - rect.top, 0);
     }
     else
     {   // ignore x, y window coord in fullscreen
@@ -142,6 +144,33 @@ bool DX12Framework::run( DX12Framework* sample )
     if (!sample->initialize())
         return false;
 
+#define NMT
+
+#ifdef MT
+    bool run = false;
+    bool renderEnded = false;
+
+    auto renderingLoop
+    {
+        [&]()
+        {
+            while (run != false)
+            {
+                if (sample->update())
+                    if (!sample->render())
+                        PostQuitMessage(-7);
+            }
+            renderEnded = true;
+        }
+    };
+    run = true;
+    std::thread renderThread(renderingLoop);
+
+
+    renderThread.detach();
+
+#endif
+
     MSG msg = { 0 };
     while (true)
     {
@@ -149,15 +178,24 @@ bool DX12Framework::run( DX12Framework* sample )
         {
             if (msg.message == WM_QUIT)
             {
+#ifdef MT
+                run = false;
+                while (renderEnded != true) //wait wile render ended
+                    Sleep(100);
+#endif
                 return 0;
             };
 
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+
+#ifndef MT
         if (sample->update())
             if (!sample->render())
                 PostQuitMessage(-7);
+#endif
+
     }
 }
 
@@ -239,8 +277,8 @@ bool DX12Framework::initDefault()
         UINT height = m_spWindow->getWindowParameters().height;
 
         m_viewport.TopLeftX = m_viewport.TopLeftY = 0;
-        m_viewport.Width = width;
-        m_viewport.Height = height;
+        m_viewport.Width = static_cast<float>(width);
+        m_viewport.Height = static_cast<float>(height);
 
         m_scissorRect.left = m_scissorRect.top = 0;
         m_scissorRect.bottom = height;
@@ -652,7 +690,7 @@ bool DX12Framework::createFence()
     if (FAILED(m_cpD3DDev->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_cpFence))))
         return false;
 
-    for(int i = 0; i < m_framesCount;i++)
+    for(UINT i = 0; i < m_framesCount;i++)
         m_fenceValues[i] = 1;
 
     // Create an event handle to use for frame synchronization.

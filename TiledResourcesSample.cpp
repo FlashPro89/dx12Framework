@@ -1,6 +1,8 @@
 #include "TiledResourcesSample.h"
 #include "DX12MeshGenerator.h"
 #include "DDSTextureLoader12.h"
+#include <stdlib.h>
+#include <string>
 
 XMMATRIX mWVP;
 
@@ -280,10 +282,24 @@ bool TiledResourcesSample::update()
     mWVP = m_spCamera->getViewProjMatrix();
     mWVP = XMMatrixTranspose(mWVP);
 
-    //XMFLOAT3 eye(-10.f, -10.f, -10.f), dir(1.f, 1.f, 1.f), up(0, 1.f, 0);
-    //XMMATRIX mView = XMMatrixLookToLH(XMLoadFloat3(&eye), XMVector3Normalize( XMLoadFloat3(&dir)), XMLoadFloat3(&up));
-    //XMMATRIX mProj = XMMatrixPerspectiveFovLH(3.1415f / 4, 1.333f, 1.f, 1500.0f);
-    //mWVP = mView * mProj;
+    XMFLOAT3 dir;
+    XMStoreFloat3( &dir, m_spCamera->getOrientation());
+
+    DX12WINDOWPARAMS wParams = m_spWindow->getWindowParameters();
+    wParams.name = "Dir:" + std::to_string(dir.x) + " " 
+                          + std::to_string(dir.y) + " "
+                          + std::to_string(dir.z);
+    //wParams.x = 100; wParams.y = 100;
+    //m_spWindow->setWindowParameters(wParams);
+
+
+    /*
+    XMFLOAT3 eye(3.f, 3.f, -3.f), dir(-1.f, -1.f, 1.f), up(0, 1.f, 0);
+    XMMATRIX mView = XMMatrixLookToLH(XMLoadFloat3(&eye), XMVector3Normalize( XMLoadFloat3(&dir)), XMLoadFloat3(&up));
+    XMMATRIX mProj = XMMatrixPerspectiveFovLH(3.1415f / 4, 1.333f, 1.f, 1500.0f);
+    mWVP = mView * mProj;
+    mWVP = XMMatrixTranspose(mWVP);
+    */
 	return true;
 }
 
@@ -324,7 +340,7 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
     rootParameters[1].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_PIXEL);
 
     D3D12_STATIC_SAMPLER_DESC sampler[1] = {};
-    sampler[0].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+    sampler[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
     sampler[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
     sampler[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
     sampler[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;

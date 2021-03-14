@@ -5,7 +5,7 @@
 #define DEFAULT_CAM_RSPEED 0.9f
 #define DEFAULT_CAM_FOV    XM_PIDIV4 //D3DX_PI / 4.0f
 #define DEFAULT_CAM_FPLANE 15000.f
-#define DEFAULT_CAM_NPLANE 1.f
+#define DEFAULT_CAM_NPLANE FLT_EPSILON
 #define DEFAULT_CAM_ASPECT 1.333f
 #define MOUSE_MAX_MOVEMENT 15
 
@@ -99,6 +99,7 @@ void gCamera::tick(float dt)
 		XMMATRIX mat_dir;
 		//D3DXRotationQuaternion(&mat_dir, &m_rot);
 		mat_dir = XMMatrixRotationQuaternion(m_rot);
+		//XMMatrixTranspose(mat_dir);
 
 		XMFLOAT3 f3_dir_forward (0, 0, 1);
 		XMFLOAT3 f3_dir_left(-1, 0, 0);
@@ -336,8 +337,8 @@ void gCamera::recompMatrices()
 
 	//D3DXVec3TransformCoord(&dir, &dir, &rot);
 	dir = XMVector3Transform( dir, rot );
-	dir -= m_pos;
-	dir = XMVector3Normalize(dir);
+	dir += m_pos;
+	//dir = XMVector3Normalize(dir);
 	//XMMATRIXLookAtLH( &m_mview, &m_pos, &dir, &XMFLOAT3(0, 1.0f, 0) );
 	m_mview = XMMatrixLookAtLH(m_pos, dir, up);
 
