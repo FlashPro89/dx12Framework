@@ -26,12 +26,15 @@ public:
 protected:
 	bool createRootSignatureAndPSO();
 	void createSRVTex2D(ID3D12Resource* pResourse, UINT heapOffsetInDescriptors);
+	bool createReservedResource();
 
 	D3D12_VERTEX_BUFFER_VIEW m_vb;
 	D3D12_INDEX_BUFFER_VIEW m_ib;
 	ComPtr<ID3D12Resource> m_cpVB;
 	ComPtr<ID3D12Resource> m_cpIB;
 	ComPtr<ID3D12Resource> m_cpTexture;
+	ComPtr<ID3D12Resource> m_cpReservedResource;
+	ComPtr<ID3D12Heap> m_cpReservedHeap;
 	ComPtr<ID3D12RootSignature> m_tiledRootSignature;
 };
 

@@ -43,6 +43,115 @@ void TiledResourcesSample::createSRVTex2D(ID3D12Resource* pResourse, UINT heapOf
     m_cpD3DDev->CreateShaderResourceView(pResourse, &srvDesc, h);
 }
 
+bool TiledResourcesSample::createReservedResource()
+{
+    HRESULT hr = S_OK;
+    //---------------------------------------
+    // Test reserved resource
+    //---------------------------------------
+    ID3D12Resource* pReservedResource;
+    auto reservedDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UINT, 2048, 2048);
+    reservedDesc.Layout = D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE;
+    reservedDesc.MipLevels = 1;
+    hr = m_cpD3DDev->CreateReservedResource(
+        &reservedDesc,
+        D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COPY_DEST,
+        nullptr,
+        IID_PPV_ARGS(&pReservedResource)
+    );
+    if (FAILED(hr))
+        return false;
+
+    m_cpReservedResource = pReservedResource;
+    createSRVTex2D(m_cpReservedResource.Get(), 1);
+    
+    //---------------------------------------
+    // Get Resource Tiling 
+    //---------------------------------------
+    UINT numTiles = 0;
+    D3D12_PACKED_MIP_INFO packedMipInfo;
+    D3D12_TILE_SHAPE tileShape;
+    UINT subresourceCount = reservedDesc.MipLevels == 0 ? 1 : reservedDesc.MipLevels;
+    std::vector<D3D12_SUBRESOURCE_TILING> tilings(subresourceCount);
+    m_cpD3DDev->GetResourceTiling(m_cpReservedResource.Get(), &numTiles, &packedMipInfo,
+        &tileShape, &subresourceCount, 0, &tilings[0]);
+
+    //---------------------------------------
+    //  Create heap
+    //---------------------------------------
+    const UINT heapSize = numTiles * D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+    CD3DX12_HEAP_DESC heapDesc(heapSize, D3D12_HEAP_TYPE_DEFAULT, 0, 
+        D3D12_HEAP_FLAG_DENY_BUFFERS | D3D12_HEAP_FLAG_DENY_RT_DS_TEXTURES);
+    hr = m_cpD3DDev->CreateHeap(&heapDesc, IID_PPV_ARGS(&m_cpReservedHeap));
+    if (FAILED(hr))
+        return false;
+
+    //---------------------------------------
+    //  Update Tilemapping   
+    //---------------------------------------
+    D3D12_TILED_RESOURCE_COORDINATE startCoordinates;
+    startCoordinates.X = 0;
+    startCoordinates.Y = 0;
+    startCoordinates.Z = 0;
+    startCoordinates.Subresource = 0;
+
+    D3D12_TILE_REGION_SIZE regionSize;
+    regionSize.Height = tilings[0].HeightInTiles;
+    regionSize.Width = tilings[0].WidthInTiles;
+    regionSize.Depth = tilings[0].DepthInTiles;
+    regionSize.NumTiles = regionSize.Height * regionSize.Width * regionSize.Depth;
+    regionSize.UseBox = true; // no packed mips yet
+
+    D3D12_TILE_RANGE_FLAGS rangeFlags = D3D12_TILE_RANGE_FLAG_NONE; // For first subres: FLAG_NONE
+    UINT heapRangeOffset = 0;
+    UINT rangeTileCount = tilings[0].WidthInTiles * tilings[0].HeightInTiles;
+
+    m_cpCommQueue->UpdateTileMappings(
+        m_cpReservedResource.Get(),
+        1,//updatedRegions,
+        &startCoordinates,
+        &regionSize,
+        m_cpReservedHeap.Get(),
+        1,//updatedRegions,
+        &rangeFlags,
+        &heapRangeOffset,
+        &rangeTileCount,
+        D3D12_TILE_MAPPING_FLAG_NONE
+    );
+
+    //---------------------------------------
+    //  Upload data
+    //---------------------------------------
+  
+    {
+        //UINT sizeInBytes = 4 * reservedDesc.Width * reservedDesc.Height;
+        UINT sizeInBytes = heapSize;
+        void* tmp = 0;
+        
+        ADDRESS uploadOffset;
+        tmp = m_spRingBuffer->allocate(0, sizeInBytes, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT, &uploadOffset);
+        if (!tmp)
+            return false;
+        memset(tmp, 0x7F, sizeInBytes);
+
+        D3D12_SUBRESOURCE_DATA srData;
+        srData.pData = tmp;
+        srData.RowPitch = 4 * reservedDesc.Width;
+        srData.SlicePitch = 4 * reservedDesc.Width * reservedDesc.Height;
+        UpdateSubresources(m_cpCommList.Get(), m_cpReservedResource.Get(),
+            m_spRingBuffer->getResource(), uploadOffset, 0, 1, &srData );
+    }
+
+    //---------------------------------------
+    //  Change state to PIXEL_SHADER_RESOURCE  
+    //---------------------------------------
+    CD3DX12_RESOURCE_BARRIER barrier =
+        CD3DX12_RESOURCE_BARRIER::Transition(m_cpReservedResource.Get(),
+            D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    m_cpCommList->ResourceBarrier(1, &barrier);
+    return true;
+}
+
 bool TiledResourcesSample::initialize()
 {
 	if (!initDefault())
@@ -57,14 +166,14 @@ bool TiledResourcesSample::initialize()
     if (!createRootSignatureAndPSO())
         return false;
 
-    if (!m_spRingBuffer->initialize(0x7FFFFF))
+    if (!m_spRingBuffer->initialize(0xFFFFFFF)) // 256MBytes
         return false;
 
     DX12MeshGenerator<0, 12, 24, 32> meshGen(m_spRingBuffer);
     DX12MeshGeneratorOffets offs;
     bool r = meshGen.buildIndexedCube(offs, 0.4f, 0.4f, 0.4f);
 
-    
+/*
     struct vert
     {
         float x, y, z;
@@ -73,6 +182,7 @@ bool TiledResourcesSample::initialize()
         float tu, tv;
     };
 
+    
     vert* _v = reinterpret_cast<vert*>(offs.vdata);
     WORD* _i = reinterpret_cast<WORD*>(offs.idata);
     FILE* f = 0;
@@ -94,6 +204,7 @@ bool TiledResourcesSample::initialize()
     }
 
     fclose(f);
+*/
 
     //----------------------------------------------
 
@@ -174,6 +285,12 @@ bool TiledResourcesSample::initialize()
     m_cpTexture = pResource;
     
 
+    // create reserved resource
+    if (!createReservedResource())
+        return false;
+
+
+
     m_spWindow->showWindow(true);
     endCommandList();
     executeCommandList();
@@ -202,7 +319,7 @@ bool TiledResourcesSample::populateCommandList()
     ID3D12DescriptorHeap* ppHeaps[] = { m_cpSRVHeap.Get() };
     m_cpCommList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
-    CD3DX12_GPU_DESCRIPTOR_HANDLE h(m_cpSRVHeap->GetGPUDescriptorHandleForHeapStart());
+    CD3DX12_GPU_DESCRIPTOR_HANDLE h(m_cpSRVHeap->GetGPUDescriptorHandleForHeapStart(), 1, m_srvDescriptorSize );
 
     m_cpCommList->RSSetViewports(1, &m_viewport);
     m_cpCommList->RSSetScissorRects(1, &m_scissorRect);
@@ -421,7 +538,8 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
 
         "float4 main(PSInput input) : SV_TARGET     "
         "{                                          "
-        "    return g_texture.Sample(g_sampler, input.uv); "
+        //"    return g_texture.Sample(g_sampler, input.uv); "
+        "   return g_texture.SampleLevel( g_sampler, input.uv, 0); "
         "} ";
 
 

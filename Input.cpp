@@ -68,6 +68,8 @@ void gInput::init()
 	if( FAILED( hr ) )
 		throw( 0 );
 	hr = m_pMouse->Acquire();
+	if (FAILED(hr))
+		throw(0);
 }
 
 bool gInput::reset()
