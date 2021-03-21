@@ -59,7 +59,7 @@ public:
 		return false;
 
 	}
-	bool buildIndexedCube( DX12MeshGeneratorOffets& outOffs, float w, float h, float d, bool use32bitIndexes = false, float tscale = 1.f )
+	bool buildIndexedCube( DX12MeshGeneratorOffets& outOffs, float w, float h, float d, bool use32bitIndexes = false, float tscale = 1.f, float toffset = 0.f )
 	{
 		UINT64 availableSize = m_spRingBuffer->getAvailableAllocationSize(m_alignment);
 
@@ -200,9 +200,9 @@ public:
 
 			for (int i = 0; i < 24; i += 4)
 			{
-				tc[i].x = 0;		tc[i].y = tscale;
-				tc[i+1].x = 0;		tc[i+1].y = 0;
-				tc[i + 2].x = tscale;	tc[i + 2].y = 0;
+				tc[i].x = toffset;		tc[i].y = tscale;
+				tc[i+1].x = toffset;		tc[i+1].y = toffset;
+				tc[i + 2].x = tscale;	tc[i + 2].y = toffset;
 				tc[i + 3].x = tscale;	tc[i + 3].y = tscale;
 			}
 

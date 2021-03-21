@@ -112,3 +112,9 @@ ID3D12Resource* gRingUploadBuffer::getResource() const
     return m_cpUploadBuffer.Get();
 }
 
+size_t gRingUploadBuffer::getQueueSize() const
+{
+    return m_uploadsQueue.size();
+}
+
+

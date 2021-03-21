@@ -51,6 +51,8 @@ public:
 
 	ID3D12Resource* getResource() const;
 
+	size_t getQueueSize() const;
+
 	//operator ID3D12Resource* () const { return m_cpUploadBuffer.Get(); };
 
 protected:

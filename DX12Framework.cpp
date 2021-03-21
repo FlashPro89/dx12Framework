@@ -1,4 +1,5 @@
 #include "DX12Framework.h"
+#include <codecvt>
 #include <thread>
 
 #pragma comment( lib , "d3d12.lib" )
@@ -72,6 +73,11 @@ bool DX12Framework::DX12Window::updateWindow()
     return UpdateWindow(static_cast<HWND>(m_parameters.handle));
 }
 
+void DX12Framework::DX12Window::setTitle( std::string title )
+{
+    if(m_parameters.handle != 0)
+        SetWindowText(m_parameters.handle, title.c_str());
+}
 
 bool DX12Framework::DX12Window::createWindow(const DX12WINDOWPARAMS& parameters)
 {
@@ -207,14 +213,14 @@ bool DX12Framework::initDefault()
     if (!m_spWindow)
     {
         m_spWindow = std::make_shared<DX12Window>();
-        ASSERT(m_spWindow->createWindow(DX12WINDOWPARAMS(m_name.c_str(), 800, 600)),
+        ASSERT(m_spWindow->createWindow(DX12WINDOWPARAMS(m_name, 800, 600)),
             "Failed create window!");
     }
 
     //-------------------------------------------------------------
     // Use debug layer if needeed
     //-------------------------------------------------------------
-    UINT dxgiFactoryFlags = createDebugLayerIfNeeded();
+    UINT dxgiFactoryFlags = 0; createDebugLayerIfNeeded();
 
     //-------------------------------------------------------------
     // Create DXGI factory
@@ -228,7 +234,7 @@ bool DX12Framework::initDefault()
     //-------------------------------------------------------------
     // Create d3d12 device
     //-------------------------------------------------------------
-    DXASSERT(createDevice(factory), "Cannot create D3D12 device!");
+    ASSERT(createDevice(factory), "Cannot create D3D12 device!");
 
     //-------------------------------------------------------------
     // Create command queues
@@ -238,7 +244,7 @@ bool DX12Framework::initDefault()
     //-------------------------------------------------------------
     // Create default swap chain
     //-------------------------------------------------------------
-    DXASSERT(createSwapChain(factory), "Cannot create D3D12 swap chain!");
+    ASSERT(createSwapChain(factory), "Cannot create D3D12 swap chain!");
 
     //-------------------------------------------------------------
     // Create descriptor heaps
@@ -279,11 +285,22 @@ bool DX12Framework::initDefault()
         m_viewport.TopLeftX = m_viewport.TopLeftY = 0;
         m_viewport.Width = static_cast<float>(width);
         m_viewport.Height = static_cast<float>(height);
+        m_viewport.MaxDepth = 1.f;
+        m_viewport.MinDepth = 0.f;
 
         m_scissorRect.left = m_scissorRect.top = 0;
         m_scissorRect.bottom = height;
         m_scissorRect.right = width;
     }
+
+    // Set Window Title:
+    using convert_typeX = std::codecvt_utf8<wchar_t>;
+    std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+    std::wstring sAdapter = (m_adapterDesc.Description);
+    std::string sTitle = m_name.c_str() + std::string(" ( ") +
+        converterX.to_bytes(sAdapter) + std::string(" )");
+    m_spWindow->setTitle(sTitle);
 
     return true;
 }
@@ -298,6 +315,7 @@ void DX12Framework::GetHardwareAdapter(IDXGIFactory1* pFactory,
 
     ComPtr<IDXGIFactory6> factory6;
     if (SUCCEEDED(pFactory->QueryInterface(IID_PPV_ARGS(&factory6))))
+    //if(false)
     {
         for (
             UINT adapterIndex = 0;
@@ -320,12 +338,18 @@ void DX12Framework::GetHardwareAdapter(IDXGIFactory1* pFactory,
                 continue;
             }
 
+            break;
+
             // Check to see whether the adapter supports Direct3D 12, but don't create the
             // actual device yet.
-            if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr)))
+            /*
+            ID3D12Device* pDevice = 0;
+            if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&pDevice))))
             {
+                pDevice->Release();
                 break;
             }
+            */
         }
     }
     else
@@ -342,12 +366,17 @@ void DX12Framework::GetHardwareAdapter(IDXGIFactory1* pFactory,
                 continue;
             }
 
+            break;
+
             // Check to see whether the adapter supports Direct3D 12, but don't create the
             // actual device yet.
-            if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr)))
+            /*
+            ID3D12Device* pDevice = 0;
+            if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&pDevice))))
             {
                 break;
             }
+            */
         }
     }
 
@@ -380,6 +409,8 @@ bool DX12Framework::createDefaultCommandQueue()
 
 bool DX12Framework::createDevice(ComPtr<IDXGIFactory4> factory)
 {
+
+
     // Select Hardware or WARP adapter type
     if (m_useWARPDevice)
     {
@@ -390,6 +421,9 @@ bool DX12Framework::createDevice(ComPtr<IDXGIFactory4> factory)
         if (FAILED(D3D12CreateDevice(warpAdapter.Get(),
             D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_cpD3DDev))))
             return false;
+        
+        warpAdapter->GetDesc(&m_adapterDesc);
+
     }
     else
     {
@@ -399,6 +433,7 @@ bool DX12Framework::createDevice(ComPtr<IDXGIFactory4> factory)
         if (FAILED(D3D12CreateDevice(hardwareAdapter.Get(),
             D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_cpD3DDev))))
             return false;
+        hardwareAdapter->GetDesc(&m_adapterDesc);
     }
     return true;
 }
@@ -516,9 +551,11 @@ bool DX12Framework::createFrameResources()
         depthOptimizedClearValue.DepthStencil.Stencil = 0;
 
         D3D12_HEAP_PROPERTIES props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+
         D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_D32_FLOAT,
             static_cast<UINT>(m_viewport.Width), static_cast<UINT>(m_viewport.Height),
             1, 0, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
+        desc.Flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
 
         CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_cpDSVHeap->GetCPUDescriptorHandleForHeapStart());
 
@@ -530,7 +567,7 @@ bool DX12Framework::createFrameResources()
         //NAME_D3D12_OBJECT(pDepthStencil);
         m_cpDepthStencil.Get()->SetName(L"m_cpDepthStencil");
         m_cpD3DDev->CreateDepthStencilView(m_cpDepthStencil.Get(),
-            &depthStencilDesc, m_cpDSVHeap->GetCPUDescriptorHandleForHeapStart());
+            &depthStencilDesc, dsvHandle);
     }
     return true;
 }
@@ -744,7 +781,7 @@ void DX12Framework::WaitForPreviousFrame()
             throw("Fence->SetEventOnCompletion() failed!");
         WaitForSingleObject(m_fenceEvent, INFINITE);
     }
-
+    m_spRingBuffer->frameEnded(m_frameIndex);
     m_frameIndex = m_cpSwapChain->GetCurrentBackBufferIndex();
 }
 

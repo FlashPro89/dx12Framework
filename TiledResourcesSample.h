@@ -13,6 +13,9 @@ public:
 		DX12FRAMEBUFFERING::DX12FB_DOUBLE, bool useWARP = false);
 	~TiledResourcesSample();
 
+	void fillReservedTextureFromBuffer();
+	void copyTile( UINT tx, UINT ty, UINT tz, UINT subresource, ADDRESS uploadOffset );
+
 	bool initialize();
 
 	bool beginCommandList();
@@ -36,6 +39,9 @@ protected:
 	ComPtr<ID3D12Resource> m_cpReservedResource;
 	ComPtr<ID3D12Heap> m_cpReservedHeap;
 	ComPtr<ID3D12RootSignature> m_tiledRootSignature;
+	std::unique_ptr<unsigned char[]> m_textureBuffer;
+	XMFLOAT2 m_cursourPosition;
+	bool m_positionChandged;
 };
 
 #endif

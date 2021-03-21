@@ -4,8 +4,8 @@
 #define DEFAULT_CAM_TSPEED 1200.f
 #define DEFAULT_CAM_RSPEED 0.9f
 #define DEFAULT_CAM_FOV    XM_PIDIV4 //D3DX_PI / 4.0f
-#define DEFAULT_CAM_FPLANE 15000.f
-#define DEFAULT_CAM_NPLANE FLT_EPSILON
+#define DEFAULT_CAM_FPLANE 10.f
+#define DEFAULT_CAM_NPLANE 1.f //FLT_EPSILON
 #define DEFAULT_CAM_ASPECT 1.333f
 #define MOUSE_MAX_MOVEMENT 15
 
@@ -236,6 +236,15 @@ float gCamera::getFOV() const
 	return m_FOV;
 }
 
+float gCamera::getFarPlane() const
+{
+	return m_fPlane;
+}
+
+float gCamera::getNearPlane() const
+{
+	return m_nPlane;
+}
 
 float gCamera::getYaw() const
 {
@@ -286,6 +295,18 @@ void gCamera::setAspectRatio(float aspectRatio)
 void gCamera::setFOV(float FOV)
 {
 	m_FOV = FOV;
+	recompMatrices();
+}
+
+void gCamera::setFarPlane( float farPlane )
+{
+	m_fPlane = farPlane;
+	recompMatrices();
+}
+
+void gCamera::setNearPlane( float nearPlane )
+{
+	m_nPlane = nearPlane;
 	recompMatrices();
 }
 

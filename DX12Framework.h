@@ -31,8 +31,13 @@
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
+#ifdef _DEBUG
 #define DXASSERT(hr,msg) assert(SUCCEEDED(hr) && msg )
 #define ASSERT(r,msg) assert( r && msg )
+#else
+#define ASSERT(r,msg) r
+#define DXASSERT(hr) hr
+#endif
 
 #define WINDOW_STYLE ( WS_OVERLAPPED | WS_SYSMENU | WS_MINIMIZEBOX | WS_CAPTION )
 #define MAXFRAMEBUFFERSCOUNT 4
@@ -83,6 +88,7 @@ public:
 		void setWindowParameters(const DX12WINDOWPARAMS& parameters);
 		const DX12WINDOWPARAMS& getWindowParameters() const; // hWnd casted to pointer
 		bool updateWindow();
+		void setTitle(std::string title);
 
 	protected:
 		DX12Window(const DX12Window&) {};
@@ -108,6 +114,7 @@ public:
 
 protected:
 	std::string m_name;
+	DXGI_ADAPTER_DESC m_adapterDesc;
 
 	void GetHardwareAdapter(IDXGIFactory1* pFactory,
 		IDXGIAdapter1** ppAdapter,

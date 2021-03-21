@@ -13,7 +13,7 @@ class gCamera;
 class gViewingFrustum
 {
 public:
-	gViewingFrustum(gCamera* cam);
+	gViewingFrustum( gCamera* cam );
 
 	bool testPoint( float x, float y, float z )  const;
 	bool testPoint( const DirectX::XMFLOAT3& point )  const;
@@ -56,6 +56,8 @@ public:
 	const DirectX::XMVECTOR& getOrientation( ) const;
 	float getAspectRatio() const;
 	float getFOV() const;
+	float getFarPlane() const;
+	float getNearPlane() const;
 
 	//test
 	float getYaw() const;
@@ -68,6 +70,8 @@ public:
 	void setOrientation(const DirectX::XMFLOAT3& dir);
 	void setAspectRatio( float aspectRatio );
 	void setFOV( float FOV );
+	void setFarPlane( float farPlane );
+	void setNearPlane( float nearPlane );
 
 
 	void lookAt( const DirectX::XMFLOAT3& target );
@@ -94,7 +98,7 @@ protected:
 	float m_yaw; 
 	float m_pitch;
 	DirectX::XMVECTOR m_pos;
-	float m_tspeed, m_rspeed, m_aspect, m_FOV, m_fPlane,m_nPlane;
+	float m_tspeed, m_rspeed, m_aspect, m_FOV, m_fPlane, m_nPlane;
 	gViewingFrustum m_frustum;
 	DirectX::XMMATRIX m_mview;
 	DirectX::XMMATRIX m_mproj;
