@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <string>
 
-constexpr UINT reservedWidth = 1024;
-constexpr UINT reservedHeight = 1024;
+constexpr UINT reservedWidth = 512;
+constexpr UINT reservedHeight = 512;
 constexpr UINT bufferWidth = 2048;
 constexpr UINT bufferHeight = 2048;
 
@@ -13,7 +13,7 @@ UINT fillingSize = 0;
 bool left = false;
 bool up = false;
 
-#define FILTER(x,y)(x&0x2 ^ y&0x2) != 0
+#define FILTER(x,y)(x&0x1 ^ y&0x1) != 0
 #define HEAP_SIZE(numTiles)(numTiles / 2 + 1 ) * D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT
 
 // ------------------------------------
@@ -25,7 +25,7 @@ bool up = false;
 TiledResourcesSample::TiledResourcesSample(std::string name,
     DX12Framework::DX12FRAMEBUFFERING buffering, bool useWARP) :
     DX12Framework(name, buffering, useWARP),
-    m_cursourPosition(0, 0),
+    m_cursourPosition(0, bufferHeight/2),
     m_positionChandged(true)
 {
 
