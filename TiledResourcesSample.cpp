@@ -725,6 +725,7 @@ bool TiledResourcesSample::update()
     constexpr float curSpeedX = bufferWidth*0.2f;
     constexpr float curSpeedY = bufferHeight * 0.2f;
     float dt = m_spTimer->getDelta();
+    //dt = 0.006f;
 
     if (m_spInput)
         m_spInput->update();
