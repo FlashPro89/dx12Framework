@@ -54,14 +54,14 @@ public:
 
 	struct DX12WINDOWPARAMS
 	{
-		DX12WINDOWPARAMS() : name(""), width(0), height(0), 
+		DX12WINDOWPARAMS() : name(L""), width(0), height(0), 
 			fullscreen(false), x(0), y(0),handle(0) {};
-		DX12WINDOWPARAMS(std::string _name, unsigned short _width, unsigned short _height,
+		DX12WINDOWPARAMS(std::wstring _name, unsigned short _width, unsigned short _height,
 			bool _fullscreen = false, unsigned _x = 0, unsigned short _y = 0) :
 			name(_name), width(_width), height(_height), 
 			fullscreen(_fullscreen), x(_x), y(_y),handle(0) {}
 
-		std::string name;
+		std::wstring name;
 		unsigned short width;
 		unsigned short height;
 		unsigned short x;
@@ -88,7 +88,7 @@ public:
 		void setWindowParameters(const DX12WINDOWPARAMS& parameters);
 		const DX12WINDOWPARAMS& getWindowParameters() const; // hWnd casted to pointer
 		bool updateWindow();
-		void setTitle(std::string title);
+		void setTitle(std::wstring title);
 
 	protected:
 		DX12Window(const DX12Window&) {};
@@ -103,7 +103,7 @@ public:
 
 	};
 
-	DX12Framework(std::string name, DX12FRAMEBUFFERING buffering = 
+	DX12Framework(std::wstring name, DX12FRAMEBUFFERING buffering = 
 		DX12FRAMEBUFFERING::DX12FB_DOUBLE, bool useWARP = false);
 	virtual ~DX12Framework() { finalize(); }
 
@@ -113,7 +113,7 @@ public:
 	static bool run( DX12Framework* sample );
 
 protected:
-	std::string m_name;
+	std::wstring m_name;
 	DXGI_ADAPTER_DESC m_adapterDesc;
 
 	void GetHardwareAdapter(IDXGIFactory1* pFactory,

@@ -26,7 +26,7 @@ void gInput::init()
         IID_IDirectInput8, (void**)&m_pDI, 0 ); 
 	if( !m_pDI )
 	{
-		MessageBox( 0, "Ошибка при создании главного интерфейса DirectInput8!", "Error!", MB_OK|MB_ICONERROR|MB_SYSTEMMODAL );
+		MessageBoxA( 0, "Ошибка при создании главного интерфейса DirectInput8!", "Error!", MB_OK|MB_ICONERROR|MB_SYSTEMMODAL );
 		PostQuitMessage( -1 );
 	}
 
@@ -34,14 +34,14 @@ void gInput::init()
 	m_pDI->CreateDevice( GUID_SysKeyboard, &m_pKeyboard, 0 ); 
 	if( !m_pKeyboard )
 	{
-		MessageBox( 0, "Ошибка при создании интерфейса клавиатуры!", "Error!", MB_OK|MB_ICONERROR|MB_SYSTEMMODAL );
+		MessageBoxA( 0, "Ошибка при создании интерфейса клавиатуры!", "Error!", MB_OK|MB_ICONERROR|MB_SYSTEMMODAL );
 		PostQuitMessage( -1 );
 	}
 
 	m_pDI->CreateDevice( GUID_SysMouse, &m_pMouse, 0 ); 
 	if( !m_pMouse )
 	{
-		MessageBox( 0, "Ошибка при создании интерфейса мыши!", "Error!", MB_OK | MB_ICONERROR | MB_SYSTEMMODAL );
+		MessageBoxA( 0, "Ошибка при создании интерфейса мыши!", "Error!", MB_OK | MB_ICONERROR | MB_SYSTEMMODAL );
 		PostQuitMessage( -1 );
 	}
 
@@ -53,14 +53,14 @@ void gInput::init()
 	hr = m_pKeyboard->SetCooperativeLevel( m_handle, DISCL_BACKGROUND | DISCL_NONEXCLUSIVE );
 	if( FAILED( hr ) )
 	{
-		MessageBox( 0, "Ошибка при установке уровня взаимодействия клавиатуры!", "Error!", MB_OK|MB_ICONERROR|MB_SYSTEMMODAL );
+		MessageBoxA( 0, "Ошибка при установке уровня взаимодействия клавиатуры!", "Error!", MB_OK|MB_ICONERROR|MB_SYSTEMMODAL );
 		PostQuitMessage( -1 );
 	}
 
 	hr = m_pMouse->SetCooperativeLevel( m_handle, DISCL_BACKGROUND | DISCL_NONEXCLUSIVE );
 	if( FAILED( hr ) )
 	{
-		MessageBox( 0, "Ошибка при установке уровня взаимодействия мыши!", "Error!", MB_OK|MB_ICONERROR|MB_SYSTEMMODAL );
+		MessageBoxA( 0, "Ошибка при установке уровня взаимодействия мыши!", "Error!", MB_OK|MB_ICONERROR|MB_SYSTEMMODAL );
 		PostQuitMessage( -1 );
 	}
 

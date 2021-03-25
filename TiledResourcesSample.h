@@ -9,7 +9,7 @@ class TiledResourcesSample :
     public DX12Framework
 {
 public:
-	TiledResourcesSample(std::string name, DX12FRAMEBUFFERING buffering =
+	TiledResourcesSample(std::wstring name, DX12FRAMEBUFFERING buffering =
 		DX12FRAMEBUFFERING::DX12FB_DOUBLE, bool useWARP = false);
 	~TiledResourcesSample();
 

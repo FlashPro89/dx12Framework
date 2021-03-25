@@ -3,6 +3,7 @@
 #include "DDSTextureLoader12.h"
 #include <stdlib.h>
 #include <string>
+#include <codecvt>
 
 constexpr UINT reservedWidth = 512;
 constexpr UINT reservedHeight = 512;
@@ -22,7 +23,7 @@ bool up = false;
 //
 // ------------------------------------
 
-TiledResourcesSample::TiledResourcesSample(std::string name,
+TiledResourcesSample::TiledResourcesSample(std::wstring name,
     DX12Framework::DX12FRAMEBUFFERING buffering, bool useWARP) :
     DX12Framework(name, buffering, useWARP),
     m_cursourPosition(0, bufferHeight/2),
@@ -76,6 +77,24 @@ bool TiledResourcesSample::createReservedResource()
 
     m_cpReservedResource = pReservedResource;
     createSRVTex2D(m_cpReservedResource.Get(), 1);
+
+    // Test reserved vbuffer
+    {
+        ComPtr< ID3D12Resource> cpReservedBufferResource;
+        ID3D12Resource* pReservedResource;
+        auto reservedBuffDesc = CD3DX12_RESOURCE_DESC::Buffer( 44 * 0xFFFFF );
+        //reservedBuffDesc.Layout = D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE;
+        hr = m_cpD3DDev->CreateReservedResource(
+            &reservedDesc,
+            D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COPY_DEST,
+            nullptr,
+            IID_PPV_ARGS(&pReservedResource)
+        );
+        if (FAILED(hr))
+            return false;
+
+        cpReservedBufferResource = pReservedResource;
+    }
     
     //---------------------------------------
     // Get Resource Tiling 
@@ -335,7 +354,6 @@ void TiledResourcesSample::fillReservedTextureFromBuffer()
             //---------------------------------------
             // Upload data to reserved texture
             //---------------------------------------
-            
             auto buffer = reinterpret_cast<unsigned char*>(m_textureBuffer.get());
             auto numTilesInSubresource = tilings[0].WidthInTiles * tilings[0].HeightInTiles;
             UINT tileRow = tileShape.WidthInTexels;
@@ -561,8 +579,13 @@ bool TiledResourcesSample::initialize()
     std::vector<D3D12_SUBRESOURCE_DATA> subResDataVector;
     ID3D12Resource* pResource;
 
-    HRESULT tlResult = LoadDDSTextureFromFile(m_cpD3DDev.Get(), L"island_v1_tex.dds",
+    HRESULT tlResult = LoadDDSTextureFromFile(m_cpD3DDev.Get(), L"..\\..\\текстуры\\island_v1_tex.dds",
         &pResource, ddsData, subResDataVector);
+    if (FAILED(tlResult))
+    {
+        MessageBox(0, L"Cannot load texture!", L"Error", MB_OK | MB_ICONERROR);
+        return false;
+    }
 
     uploadSubresources(pResource, static_cast<UINT>(subResDataVector.size()), &subResDataVector[0]);
     createSRVTex2D(pResource, 0);
@@ -574,10 +597,11 @@ bool TiledResourcesSample::initialize()
     if (!createReservedResource())
         return false;
 
-    m_spWindow->showWindow(true);
     endCommandList();
     executeCommandList();
     WaitForGpu();
+
+    m_spWindow->showWindow(true);
 
 	return true;
 }
@@ -806,8 +830,8 @@ bool TiledResourcesSample::update()
 
 
     DX12WINDOWPARAMS wParams = m_spWindow->getWindowParameters();
-    wParams.name = "Cur: " + std::to_string(m_cursourPosition.x) + " "
-                           + std::to_string(m_cursourPosition.y);
+    wParams.name = L"Cur: " + std::to_wstring(m_cursourPosition.x) + L" "
+                           + std::to_wstring(m_cursourPosition.y);
     wParams.x = 100; wParams.y = 100;
     //m_spWindow->setWindowParameters(wParams);
 

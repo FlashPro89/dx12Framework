@@ -35,8 +35,8 @@ public:
 protected:
 	HWND m_handle;
 	LPDIRECTINPUT8 m_pDI;
-	LPDIRECTINPUTDEVICE8A m_pKeyboard;
-	LPDIRECTINPUTDEVICE8A m_pMouse;
+	LPDIRECTINPUTDEVICE8W m_pKeyboard;
+	LPDIRECTINPUTDEVICE8W m_pMouse;
 	bool m_keyboardOld[256];
 	DIMOUSESTATE m_mouseOld;
 	bool m_keyboardOld2[256];
