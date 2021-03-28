@@ -579,6 +579,13 @@ bool TiledResourcesSample::initialize()
     std::vector<D3D12_SUBRESOURCE_DATA> subResDataVector;
     ID3D12Resource* pResource;
 
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+    std::string str = converter.to_bytes(L"../../текстуры/island_v1_tex.dds");
+    std::wstring wstr = converter.from_bytes( str.c_str() );
+
+    int size = static_cast<int>(strlen(str.c_str()) + 1);
+    WideCharToMultiByte(CP_ACP, 0, wstr.c_str(), -1, &str[0], size, NULL, NULL);
+
     HRESULT tlResult = LoadDDSTextureFromFile(m_cpD3DDev.Get(), L"..\\..\\текстуры\\island_v1_tex.dds",
         &pResource, ddsData, subResDataVector);
     if (FAILED(tlResult))

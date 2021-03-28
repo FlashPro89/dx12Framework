@@ -179,9 +179,9 @@ protected:
 	D3D12_RECT m_scissorRect;
 
 	// Descriptor heaps
-	size_t m_rtvDescriptorSize;
-	size_t m_dsvDescriptorSize;
-	size_t m_srvDescriptorSize;
+	UINT m_rtvDescriptorSize;
+	UINT m_dsvDescriptorSize;
+	UINT m_srvDescriptorSize;
 
 	//util objects
 	std::shared_ptr<gCamera> m_spCamera;
