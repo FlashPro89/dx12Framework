@@ -150,7 +150,7 @@ bool DX12Framework::run( DX12Framework* sample )
     if (!sample->initialize())
         return false;
 
-#define NMT
+#define MT
 
 #ifdef MT
     bool run = false;
@@ -172,7 +172,6 @@ bool DX12Framework::run( DX12Framework* sample )
     run = true;
     std::thread renderThread(renderingLoop);
 
-
     renderThread.detach();
 
 #endif
@@ -186,7 +185,7 @@ bool DX12Framework::run( DX12Framework* sample )
             {
 #ifdef MT
                 run = false;
-                while (renderEnded != true) //wait wile render ended
+                while (renderEnded != true) //wait while render ended
                     Sleep(100);
 #endif
                 return 0;
