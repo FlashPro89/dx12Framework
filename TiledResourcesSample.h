@@ -36,12 +36,19 @@ protected:
 	ComPtr<ID3D12Resource> m_cpVB;
 	ComPtr<ID3D12Resource> m_cpIB;
 	ComPtr<ID3D12Resource> m_cpTexture;
+	ComPtr<ID3D12Resource> m_cpNormalMap;
 	ComPtr<ID3D12Resource> m_cpReservedResource;
 	ComPtr<ID3D12Heap> m_cpReservedHeap;
 	ComPtr<ID3D12RootSignature> m_tiledRootSignature;
 	std::unique_ptr<unsigned char[]> m_textureBuffer;
 	XMFLOAT2 m_cursourPosition;
 	bool m_positionChandged;
+
+	UINT m_fillingSize;
+	bool m_left;
+	bool m_up;
+	float m_lightRotRadius;
+	float m_lightRotAngle;
 };
 
 #endif

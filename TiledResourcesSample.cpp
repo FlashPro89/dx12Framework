@@ -9,10 +9,7 @@ constexpr UINT reservedWidth = 512;
 constexpr UINT reservedHeight = 512;
 constexpr UINT bufferWidth = 2048;
 constexpr UINT bufferHeight = 2048;
-
-UINT fillingSize = 0;
-bool left = false;
-bool up = false;
+constexpr UINT RESERVER_RES_DHEAP_OFFSET = 7;
 
 #define FILTER(x,y)(x&0x1 ^ y&0x1) != 0
 #define HEAP_SIZE(numTiles)(numTiles / 2 + 1 ) * D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT
@@ -27,7 +24,12 @@ TiledResourcesSample::TiledResourcesSample(std::wstring name,
     DX12Framework::DX12FRAMEBUFFERING buffering, bool useWARP) :
     DX12Framework(name, buffering, useWARP),
     m_cursourPosition(0, bufferHeight/2),
-    m_positionChandged(true)
+    m_positionChandged(true),
+    m_fillingSize(0),
+    m_left(false),
+    m_up(false),
+    m_lightRotRadius( 5.f ),
+    m_lightRotAngle( 0.f )
 {
 
 }
@@ -76,7 +78,7 @@ bool TiledResourcesSample::createReservedResource()
         return false;
 
     m_cpReservedResource = pReservedResource;
-    createSRVTex2D(m_cpReservedResource.Get(), 1);
+    createSRVTex2D(m_cpReservedResource.Get(), RESERVER_RES_DHEAP_OFFSET );
 
     // Test reserved vbuffer
     {
@@ -456,15 +458,22 @@ bool TiledResourcesSample::initialize()
 	if (!initInput())
 		return false;
 
+    XMMATRIX mTang, mInvertedTang;
+    XMFLOAT3X3 mfInvertedTang, mfTang = { 0, 0, -1,  -1, 0, 0,   0, 1, 0 };
+    mTang = XMLoadFloat3x3(&mfTang);
+    mInvertedTang = XMMatrixInverse(nullptr, mTang);
+    XMStoreFloat3x3( &mfInvertedTang, mInvertedTang );
    
     D3D12_FEATURE_DATA_D3D12_OPTIONS options = {};
     m_cpD3DDev->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &options, sizeof(options));
     bool tilingSupport = options.TiledResourcesTier != D3D12_TILED_RESOURCES_TIER_NOT_SUPPORTED;
+    //ASSERT(tilingSupport, "Tiled Resources Not Supported By Video Adapter!");
 
     m_spCamera = std::make_shared<gCamera>(m_spInput.get());
-    m_spCamera->setPosition(XMFLOAT3(0, 0, -10.f));
-    m_spCamera->lookAt(XMFLOAT3(0, 0, 0));
+    m_spCamera->setPosition(XMFLOAT3(0, 0, -5.f));
+    m_spCamera->lookAt(XMFLOAT3(1, 1, 0));
     m_spCamera->setMovementSpeed(5.f);
+    m_spCamera->setNearPlane(0.2f);
         
     if (!createRootSignatureAndPSO())
         return false;
@@ -472,11 +481,11 @@ bool TiledResourcesSample::initialize()
     if (!m_spRingBuffer->initialize(0x3FFFFFF)) // 64MBytes
         return false;
 
-    DX12MeshGenerator<0, 12, 24, 32> meshGen(m_spRingBuffer);
+    DX12MeshGenerator<0, 12, 24, 36> meshGen(m_spRingBuffer);
     DX12MeshGeneratorOffets offs;
     bool r = meshGen.buildIndexedCube(offs, 0.4f, 0.4f, 0.4f,false);
 
-/*
+
     struct vert
     {
         float x, y, z;
@@ -507,7 +516,7 @@ bool TiledResourcesSample::initialize()
     }
 
     fclose(f);
-*/
+
 
     //----------------------------------------------
 
@@ -574,31 +583,54 @@ bool TiledResourcesSample::initialize()
     m_ib.SizeInBytes = offs.iDataSize;
     m_ib.Format = DXGI_FORMAT_R16_UINT; 
 
-    //Test load dds:
-    std::unique_ptr<uint8_t[]> ddsData;
-    std::vector<D3D12_SUBRESOURCE_DATA> subResDataVector;
-    ID3D12Resource* pResource;
+    //Test load diffuse and normalmap dds:
 
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-    std::string str = converter.to_bytes(L"../../текстуры/island_v1_tex.dds");
-    std::wstring wstr = converter.from_bytes( str.c_str() );
+    //std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+    //std::string str = converter.to_bytes(L"../../текстуры/rocks.dds");
+    //std::wstring wstr = converter.from_bytes( str.c_str() );
 
-    int size = static_cast<int>(strlen(str.c_str()) + 1);
-    WideCharToMultiByte(CP_ACP, 0, wstr.c_str(), -1, &str[0], size, NULL, NULL);
+    //int size = static_cast<int>(strlen(str.c_str()) + 1);
+    //WideCharToMultiByte(CP_ACP, 0, wstr.c_str(), -1, &str[0], size, NULL, NULL);
 
-    HRESULT tlResult = LoadDDSTextureFromFile(m_cpD3DDev.Get(), L"..\\..\\текстуры\\island_v1_tex.dds",
-        &pResource, ddsData, subResDataVector);
-    if (FAILED(tlResult))
-    {
-        MessageBox(0, L"Cannot load texture!", L"Error", MB_OK | MB_ICONERROR);
-        return false;
+
+    {   // Base texture
+        std::unique_ptr<uint8_t[]> ddsData;
+        std::vector<D3D12_SUBRESOURCE_DATA> subResDataVector;
+        ID3D12Resource* pResource;
+
+        HRESULT tlResult = LoadDDSTextureFromFile(m_cpD3DDev.Get(), L"..\\..\\текстуры\\metalfloor006a.dds",
+            &pResource, ddsData, subResDataVector);
+        if (FAILED(tlResult))
+        {
+            MessageBox(0, L"Cannot load texture!", L"Error", MB_OK | MB_ICONERROR);
+            return false;
+        }
+
+        uploadSubresources(pResource, static_cast<UINT>(subResDataVector.size()), &subResDataVector[0]);
+        createSRVTex2D(pResource, 0);
+
+        m_cpTexture = pResource;
     }
 
-    uploadSubresources(pResource, static_cast<UINT>(subResDataVector.size()), &subResDataVector[0]);
-    createSRVTex2D(pResource, 0);
+    {   // Normal Map with height in alpha channel
+        std::unique_ptr<uint8_t[]> ddsData;
+        std::vector<D3D12_SUBRESOURCE_DATA> subResDataVector;
+        ID3D12Resource* pResource;
 
-    m_cpTexture = pResource;
-    
+        HRESULT tlResult = LoadDDSTextureFromFile(m_cpD3DDev.Get(), L"..\\..\\текстуры\\four_NM_height.dds",
+            &pResource, ddsData, subResDataVector);
+        if (FAILED(tlResult))
+        {
+            MessageBox(0, L"Cannot load normal map!", L"Error", MB_OK | MB_ICONERROR);
+            return false;
+        }
+
+        uploadSubresources(pResource, static_cast<UINT>(subResDataVector.size()), &subResDataVector[0]);
+        createSRVTex2D(pResource, 1);
+        createSRVTex2D(pResource, RESERVER_RES_DHEAP_OFFSET + 1);
+
+        m_cpNormalMap = pResource;
+    }
 
     // create reserved resource
     if (!createReservedResource())
@@ -633,7 +665,11 @@ bool TiledResourcesSample::populateCommandList()
     ID3D12DescriptorHeap* ppHeaps[] = { m_cpSRVHeap.Get() };
     m_cpCommList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
-    CD3DX12_GPU_DESCRIPTOR_HANDLE h(m_cpSRVHeap->GetGPUDescriptorHandleForHeapStart(), 0, m_srvDescriptorSize );
+    CD3DX12_GPU_DESCRIPTOR_HANDLE h(m_cpSRVHeap->GetGPUDescriptorHandleForHeapStart(), 
+        0, m_srvDescriptorSize );
+    CD3DX12_GPU_DESCRIPTOR_HANDLE h2(m_cpSRVHeap->GetGPUDescriptorHandleForHeapStart(), 
+        RESERVER_RES_DHEAP_OFFSET, m_srvDescriptorSize);
+
 
     m_cpCommList->RSSetViewports(1, &m_viewport);
     m_cpCommList->RSSetScissorRects(1, &m_scissorRect);
@@ -660,62 +696,91 @@ bool TiledResourcesSample::populateCommandList()
     if (m_positionChandged)
         fillReservedTextureFromBuffer();
 
-    XMFLOAT4X4 mvp;
-    XMMATRIX mWVP, mVP, mTranslation;
+    XMFLOAT4X4 fmWVP;
+    XMFLOAT4X4 fmW;
+    XMMATRIX mWVP, mVP, mTranslation, mRotationX, mRotationY, mRotationZ;
     mVP = m_spCamera->getViewProjMatrix();
 
     //draw cube with DDS testure
     mTranslation = XMMatrixTranslation(0.f, 0.f, 0.f);
     mWVP = mTranslation * mVP;
-    XMStoreFloat4x4( &mvp, XMMatrixTranspose(mWVP) );
+    XMStoreFloat4x4( &fmWVP, XMMatrixTranspose(mWVP) );
+    XMStoreFloat4x4( &fmW, XMMatrixTranspose(mTranslation) );
 
-    m_cpCommList->SetGraphicsRootDescriptorTable(1, h);
-    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &mvp, 0);
-    m_cpCommList->DrawIndexedInstanced(36, 1, 0, 0, 0);
+    // set light dir
+    float lightPos[4] = { cosf(m_lightRotAngle) * m_lightRotRadius, 0.f, 
+        sinf(m_lightRotAngle) * m_lightRotRadius, 0.4f };
+    m_cpCommList->SetGraphicsRoot32BitConstants( 0, 4, &lightPos, 32 );
+
+    // set view dir
+    XMFLOAT3 viewDir;
+    XMStoreFloat3( &viewDir, m_spCamera->getDirectionVector());
+    m_cpCommList->SetGraphicsRoot32BitConstants( 0, 3, &viewDir, 36 );
+
+    m_cpCommList->SetGraphicsRootDescriptorTable( 3, h );
+    m_cpCommList->SetGraphicsRoot32BitConstants( 0, 16, &fmWVP, 0 );
+    m_cpCommList->SetGraphicsRoot32BitConstants( 0, 16, &fmW, 16 );
+    m_cpCommList->DrawIndexedInstanced( 36, 1, 0, 0, 0 );
 
     // draw cube with reserved texture
-    mTranslation = XMMatrixTranslation(1.f, 0.f, 0.f);
+    mTranslation = XMMatrixTranslation( 1.f, 0.f, 0.f );
     mWVP = mTranslation * mVP;
-    XMStoreFloat4x4(&mvp, XMMatrixTranspose(mWVP));
-    h.Offset(1, m_srvDescriptorSize);
-    m_cpCommList->SetGraphicsRootDescriptorTable(1, h);
-    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &mvp, 0);
+    XMStoreFloat4x4(&fmWVP, XMMatrixTranspose(mWVP));
+    XMStoreFloat4x4(&fmW, XMMatrixTranspose(mTranslation));
+
+    //h.Offset(1, m_srvDescriptorSize);
+    m_cpCommList->SetGraphicsRootDescriptorTable(3, h2);
+    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &fmWVP, 0);
+    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &fmW, 16);
     m_cpCommList->DrawIndexedInstanced(36, 1, 0, 0, 0);
 
     // draw third cube with DDS texture
     mTranslation = XMMatrixTranslation(2.f, 0.f, 0.f);
     mWVP = mTranslation * mVP;
-    XMStoreFloat4x4(&mvp, XMMatrixTranspose(mWVP));
-    h.Offset(-1, m_srvDescriptorSize);
-    m_cpCommList->SetGraphicsRootDescriptorTable(1, h);
-    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &mvp, 0);
+    XMStoreFloat4x4(&fmWVP, XMMatrixTranspose(mWVP));
+    XMStoreFloat4x4(&fmW, XMMatrixTranspose(mTranslation));
+    //h.Offset(-1, m_srvDescriptorSize);
+    m_cpCommList->SetGraphicsRootDescriptorTable(3, h);
+    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &fmWVP, 0);
+    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &fmW, 16);
     m_cpCommList->DrawIndexedInstanced(36, 1, 0, 0, 0);
 
     // upper level
     mTranslation = XMMatrixTranslation(0.f, 1.f, 0.f);
     mWVP = mTranslation * mVP;
-    XMStoreFloat4x4(&mvp, XMMatrixTranspose(mWVP));
+    XMStoreFloat4x4(&fmWVP, XMMatrixTranspose(mWVP));
+    XMStoreFloat4x4(&fmW, XMMatrixTranspose(mTranslation));
 
-    //m_cpCommList->SetGraphicsRootDescriptorTable(1, h);
-    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &mvp, 0);
+    //m_cpCommList->SetGraphicsRootDescriptorTable(3, h);
+    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &fmWVP, 0);
+    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &fmW, 16);
     m_cpCommList->DrawIndexedInstanced(36, 1, 0, 0, 0);
 
     // draw cube with reserved texture
     mTranslation = XMMatrixTranslation(1.f, 1.f, 0.f);
-    mWVP = mTranslation * mVP;
-    XMStoreFloat4x4(&mvp, XMMatrixTranspose(mWVP));
+    mRotationX = XMMatrixRotationX(-m_lightRotAngle * 0.1f);
+    mRotationY = XMMatrixRotationY(XM_PIDIV2 / 2); // XM_PIDIV2/2
+    mRotationZ = XMMatrixRotationZ(-m_lightRotAngle * 0.1f);
+    
+    //mWVP = mRotationX * mRotationY * mRotationZ * mTranslation * mVP;
+    mWVP =  mRotationY * mTranslation * mVP;
+    XMStoreFloat4x4(&fmWVP, XMMatrixTranspose(mWVP));
+    XMStoreFloat4x4(&fmW, XMMatrixTranspose( mRotationY * mTranslation ));
 
-    //m_cpCommList->SetGraphicsRootDescriptorTable(1, h);
-    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &mvp, 0);
+    //m_cpCommList->SetGraphicsRootDescriptorTable(3, h);
+    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &fmWVP, 0);
+    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &fmW, 16);
     m_cpCommList->DrawIndexedInstanced(36, 1, 0, 0, 0);
 
     // draw third cube with DDS texture
     mTranslation = XMMatrixTranslation(2.f, 1.f, 0.f);
     mWVP = mTranslation * mVP;
-    XMStoreFloat4x4(&mvp, XMMatrixTranspose(mWVP));
+    XMStoreFloat4x4(&fmWVP, XMMatrixTranspose(mWVP));
+    XMStoreFloat4x4(&fmW, XMMatrixTranspose(mTranslation));
 
-    //m_cpCommList->SetGraphicsRootDescriptorTable(1, h);
-    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &mvp, 0);
+    //m_cpCommList->SetGraphicsRootDescriptorTable(3, h);
+    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &fmWVP, 0);
+    m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &fmW, 16);
     m_cpCommList->DrawIndexedInstanced(36, 1, 0, 0, 0);
     
     // Indicate that the back buffer will now be used to present.
@@ -756,7 +821,8 @@ bool TiledResourcesSample::update()
     constexpr float curSpeedX = bufferWidth*0.2f;
     constexpr float curSpeedY = bufferHeight * 0.2f;
     float dt = m_spTimer->getDelta();
-    //dt = 0.006f;
+   
+    //m_lightRotAngle += dt * 1.03f;
 
     if (m_spInput)
         m_spInput->update();
@@ -787,52 +853,52 @@ bool TiledResourcesSample::update()
     }
     */
 
-    if( left )
+    if( m_left )
         m_cursourPosition.x -= curSpeedX * dt;
     else
         m_cursourPosition.x += curSpeedX * dt;
 
-    if( up )
+    if( m_up )
         m_cursourPosition.y -= curSpeedY * dt;
     else
         m_cursourPosition.y += curSpeedY * dt;
     m_positionChandged = true;
 
-    if (m_spInput->isKeyPressed(DIK_O))
-    {
-        m_positionChandged = true;
-        fillingSize -= 128 * 16;
-    }
-    if (m_spInput->isKeyPressed(DIK_P))
-    {
-        m_positionChandged = true;
-        fillingSize += 128 * 16;
-    }
-    if (fillingSize < 128 * 16)
-        fillingSize = 128 * 16;
-    if (fillingSize > reservedWidth * reservedHeight)
-        fillingSize = reservedWidth * reservedHeight;
+    //if (m_spInput->isKeyPressed(DIK_O))
+    //{
+    //    m_positionChandged = true;
+    //    m_fillingSize -= 128 * 16;
+    //}
+    //if (m_spInput->isKeyPressed(DIK_P))
+    //{
+    //    m_positionChandged = true;
+    //    fillingSize += 128 * 16;
+    //}
+    //if (fillingSize < 128 * 16)
+    //    fillingSize = 128 * 16;
+    //if (fillingSize > reservedWidth * reservedHeight)
+    //    fillingSize = reservedWidth * reservedHeight;
 
     //128 texels - standart size of tile for R8G8B8A8_UNORM format
     if (m_cursourPosition.x > bufferWidth - reservedWidth)
     {
         m_cursourPosition.x = bufferWidth - reservedWidth;
-        left = true;
+        m_left = true;
     }
     if (m_cursourPosition.x < 0)
     {
-        left = false;
+        m_left = false;
         m_cursourPosition.x = 0;
     }
     if (m_cursourPosition.y > bufferHeight - reservedHeight)
     {
         m_cursourPosition.y = bufferHeight - reservedHeight;
-        up = true;
+        m_up = true;
     }
     if (m_cursourPosition.y < 0)
     {
         m_cursourPosition.y = 0;
-        up = false;
+        m_up = false;
     }
 
 
@@ -874,12 +940,14 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
     if (FAILED(m_cpD3DDev->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData))))
         featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
 
-    CD3DX12_DESCRIPTOR_RANGE1 ranges[1];
-    ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+    CD3DX12_DESCRIPTOR_RANGE1 ranges[1]; // diffuse + nmap
+    ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[2];
-    rootParameters[0].InitAsConstants(16, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
-    rootParameters[1].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_PIXEL);
+    CD3DX12_ROOT_PARAMETER1 rootParameters[4];
+    rootParameters[0].InitAsConstants(40, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX); // wvp + w + lightVec + eyeDir
+    rootParameters[1].InitAsConstants(16, 1, 0, D3D12_SHADER_VISIBILITY_VERTEX); // not use, delete it
+    rootParameters[2].InitAsConstants(4, 2, 0, D3D12_SHADER_VISIBILITY_VERTEX); // not use, delete it
+    rootParameters[3].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_PIXEL); // srv descriptor
 
     D3D12_STATIC_SAMPLER_DESC sampler[1] = {};
     sampler[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
@@ -921,11 +989,88 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
     UINT compileFlags = 0;
 #endif
 
+    //const char vs_source[] =
+    //    "struct VS_INPUT                    \n"
+    //    "{                                   \n"
+    //    "    float3 pos : POSITION;          \n"
+    //    "    float3 normal : NORMAL;          \n"
+    //    "    float3 tangent : TANGENT;      \n"
+    //    "    float2 texCoord : TEXCOORD;     \n"
+    //    "};                                 \n\n"
+
+    //    "struct VS_OUTPUT                       \n"
+    //    "{                                      \n"
+    //    "    float4 pos : SV_POSITION;          \n"
+    //    "    float2 texCoord : TEXCOORD0;        \n"
+    //    "    float4 lightVec : TEXCOORD1;       \n"
+    //    "    float3 normal : TEXCOORD2;          \n"
+    //    "    float3 binormal : TEXCOORD3;          \n"
+    //    "    float3 tangent : TEXCOORD4;          \n"
+    //    "    float3 viewDir : TEXCOORD5;       \n"
+    //    "}; \n\n"
+
+    //    "struct sConstantBuffer                 \n"
+    //    "{                                      \n"
+    //    "    float4x4 wvpMat;                   \n"
+    //    "    float4x4 wMat;                     \n"
+    //    "    float4 lightVec;                   \n"  
+    //    "    float3 viewDir;                    \n"
+    //    "};                                     \n\n"
+    //    "ConstantBuffer<sConstantBuffer> myCBuffer : register(b0); \n\n"
+    //    "VS_OUTPUT main(VS_INPUT input)         \n"
+    //    "{                                      \n"
+    //    "   VS_OUTPUT output; \n"
+    //    "   output.pos = mul( float4( input.pos, 1.0f), myCBuffer.wvpMat );\n"
+    //    "   output.normal = normalize( mul( float4(input.normal,0.f), myCBuffer.wMat ) ).xyz; \n"
+    //    "   output.tangent = normalize( mul( float4(input.tangent,0.f), myCBuffer.wMat ) ).xyz; \n"
+    //    //"   output.tangent = input.tangent; \n"
+    //    "   output.binormal = cross( output.tangent, output.normal ); \n"
+    //    "   output.texCoord = input.texCoord;  \n"
+    //    "   output.lightVec.xyz = normalize( myCBuffer.lightVec.xyz);   \n"
+    //    "   output.lightVec.w = myCBuffer.lightVec.w;   \n"
+    //    "   output.viewDir = myCBuffer.viewDir;     \n"
+    //    "   return output;                          \n"
+    //    "}\n";
+
+    //const char ps_source[] =
+    //    "struct PSInput                         \n"
+    //    "{                                      \n"
+    //    "    float4 position : SV_POSITION;     \n"
+    //    "    float2 uv : TEXCOORD0;              \n"
+    //    "    float4 lightVec : TEXCOORD1;       \n"
+    //    "    float3 normal : TEXCOORD2;          \n"
+    //    "    float3 binormal : TEXCOORD3;          \n"
+    //    "    float3 tangent : TEXCOORD4;          \n"
+    //    "    float3 viewDir : TEXCOORD5;       \n"
+    //    "};                                     \n\n"
+
+    //    "Texture2D g_texture : register(t0);       \n"
+    //    "Texture2D g_normMap : register(t1);       \n"
+    //    "SamplerState g_sampler : register(s0);     \n\n"
+
+    //    " // lightVec.w = ambient intensivity \n"
+    //    "float4 main(PSInput input) : SV_TARGET     \n"
+    //    "{                                          \n"
+    //    "    //input.normal.z = -input.normal.z;      \n"
+    //    "    float4 diffuseSample = g_texture.Sample(g_sampler, input.uv); \n"
+    //    "    float3 normalSample =  g_normMap.Sample(g_sampler, input.uv).xyz   * 2.f - 1.f; \n"
+    //    "    float3x3 mTangentSpace = float3x3( input.tangent, input.binormal, input.normal ); \n"
+    //    "    normalSample = mul( normalSample, mTangentSpace ); \n"
+    //    //"    normalize( normalSample ); \n"
+    //    //"  float4 diffuseComponent =  input.lightVec.w + max( dot( input.normal, input.lightVec.xyz ), 0.f ); \n"
+    //    "    float4 diffuseComponent = input.lightVec.w + max(dot( normalSample, input.lightVec.xyz), 0.f); \n"
+    //    "    float4 finalColor = diffuseComponent;\n"// * diffuseSample;\n"
+    //    "    return finalColor;                                         \n"
+    //    "    //return float4( (normalSample.xyz+1) * 0.5f, 1.f );\n"
+    //    //"  return g_texture.SampleLevel( g_sampler, input.uv, 0); \n"
+    //    "} \n";
+
+
     const char vs_source[] =
         "struct VS_INPUT                    \n"
         "{                                   \n"
         "    float3 pos : POSITION;          \n"
-        "    float3 norm : NORMAL;          \n"
+        "    float3 normal : NORMAL;          \n"
         "    float3 tangent : TANGENT;      \n"
         "    float2 texCoord : TEXCOORD;     \n"
         "};                                 \n\n"
@@ -933,39 +1078,72 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         "struct VS_OUTPUT                       \n"
         "{                                      \n"
         "    float4 pos : SV_POSITION;          \n"
-        "    float2 texCoord : TEXCOORD;        \n"
+        "    float2 texCoord : TEXCOORD0;        \n"
+        "    float4 lightVec : TEXCOORD1;       \n"
+        "    float3 normal : TEXCOORD2;          \n"
+        "    float3 binormal : TEXCOORD3;          \n"
+        "    float3 tangent : TEXCOORD4;          \n"
+        "    float3 viewDir : TEXCOORD5;       \n"
         "}; \n\n"
 
         "struct sConstantBuffer                 \n"
         "{                                      \n"
         "    float4x4 wvpMat;                   \n"
-        "};                                     \n"
-        "ConstantBuffer<sConstantBuffer> myCBuffer : register(b0); \n"
+        "    float4x4 wMat;                     \n"
+        "    float4 lightVec;                   \n"
+        "    float3 viewDir;                    \n"
+        "};                                     \n\n"
+        "ConstantBuffer<sConstantBuffer> myCBuffer : register(b0); \n\n"
         "VS_OUTPUT main(VS_INPUT input)         \n"
         "{                                      \n"
         "   VS_OUTPUT output; \n"
-        //"   float4 tPos = input.pos;"
-        //"   tPos.w = 1.0f;"
-        //"   output.pos = mul(tPos, myCBuffer.wvpMat); "
         "   output.pos = mul( float4( input.pos, 1.0f), myCBuffer.wvpMat );\n"
         "   output.texCoord = input.texCoord;  \n"
-        "   return output;                     \n"
+
+        "   output.normal = normalize( mul( float4(input.normal,0.f), myCBuffer.wMat ) ).xyz; \n"
+        "   output.tangent = normalize( mul( float4(input.tangent,0.f), myCBuffer.wMat ) ).xyz; \n"
+        "   output.binormal = normalize( cross( output.tangent, output.normal ) ); \n"
+
+        "   float3x3 mTangentSpace = float3x3( output.tangent, output.binormal, output.normal ); \n"
+        "   output.lightVec.xyz = mul( mTangentSpace, -normalize( myCBuffer.lightVec.xyz ) );   \n"
+        "   output.lightVec.w = myCBuffer.lightVec.w;   \n"
+        "   output.viewDir = mul( mTangentSpace, normalize( myCBuffer.viewDir ) );     \n"
+        "   return output;                          \n"
         "}\n";
 
     const char ps_source[] =
         "struct PSInput                         \n"
         "{                                      \n"
         "    float4 position : SV_POSITION;     \n"
-        "    float2 uv : TEXCOORD;              \n"
+        "    float2 uv : TEXCOORD0;              \n"
+        "    float4 lightVec : TEXCOORD1;       \n"
+        "    float3 normal : TEXCOORD2;          \n"
+        "    float3 binormal : TEXCOORD3;          \n"
+        "    float3 tangent : TEXCOORD4;          \n"
+        "    float3 viewDir : TEXCOORD5;       \n"
         "};                                     \n\n"
 
         "Texture2D g_texture : register(t0);       \n"
+        "Texture2D g_normMap : register(t1);       \n"
         "SamplerState g_sampler : register(s0);     \n\n"
 
+        " // lightVec.w = ambient intensivity \n"
         "float4 main(PSInput input) : SV_TARGET     \n"
         "{                                          \n"
-        "    return g_texture.Sample(g_sampler, input.uv); \n"
-        //"   return g_texture.SampleLevel( g_sampler, input.uv, 0); \n"
+        "    float4 diffuseSample = g_texture.Sample(g_sampler, input.uv); \n"
+        "    float3 normalSample =  g_normMap.Sample(g_sampler, input.uv).xyz   * 2.f - 1.f; \n"
+
+        //"    normalSample = mul( normalSample, mTangentSpace ); \n"
+        //"    normalize( normalSample ); \n"
+        // 
+        //"  float4 diffuseComponent =  input.lightVec.w + max( dot( input.normal, input.lightVec.xyz ), 0.f ); \n"
+        "    float power = 24; \n"
+        "    float4 diffuseComponent = input.lightVec.w + max(dot( normalSample, input.lightVec.xyz), 0.f) * input.lightVec.w; \n"
+        "    float4 specularComponent = 0.7f * pow( max( dot( reflect( input.viewDir, normalSample ), input.lightVec.xyz ), 0.f ), power ); \n"
+        "    float4 finalColor = ( specularComponent + diffuseComponent ) * diffuseSample;\n"
+        "    return finalColor;                                         \n"
+        "    //return float4( (normalSample.xyz+1) * 0.5f, 1.f );\n"
+        //"  return g_texture.SampleLevel( g_sampler, input.uv, 0); \n"
         "} \n";
 
 
@@ -973,19 +1151,38 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
 
     if (FAILED(D3DCompile(vs_source, sizeof(vs_source), "vs_tiled", nullptr,
         nullptr, "main", "vs_5_1", compileFlags, 0, &vertexShader, &errorBlob)))
+    {
+        MessageBoxA(0, reinterpret_cast<const char*>(errorBlob->GetBufferPointer()), "Vertex Shader Error", MB_OK);
+        errorBlob->Release();
         return false;
+    }
+    if (errorBlob)
+    {
+        if( errorBlob->GetBufferSize() > 0)
+            MessageBoxA(0, reinterpret_cast<const char*>(errorBlob->GetBufferPointer()), "Vertex Shader Warning", MB_OK);
+        errorBlob->Release();
+    }
 
     if (FAILED(D3DCompile(ps_source, sizeof(ps_source), "ps_tiled", nullptr,
         nullptr, "main", "ps_5_1", compileFlags, 0, &pixelShader, &errorBlob)))
+    {
+        MessageBoxA(0, reinterpret_cast<const char*>(errorBlob->GetBufferPointer()), "Pixel Shader Error", MB_OK);
+        errorBlob->Release();
         return false;
-
+    }
+    if (errorBlob)
+    {
+        if (errorBlob->GetBufferSize() > 0)
+            MessageBoxA(0, reinterpret_cast<const char*>(errorBlob->GetBufferPointer()), "Pixel Shader Warning", MB_OK);
+        errorBlob->Release();
+    }
     // Define the vertex input layout.
     D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
     {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 
     // Describe and create the graphics pipeline state object (PSO).

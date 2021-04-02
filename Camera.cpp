@@ -226,6 +226,18 @@ const XMVECTOR& gCamera::getOrientation()  const
 	return m_rot;
 }
 
+DirectX::XMVECTOR gCamera::getDirectionVector() const
+{
+	XMMATRIX rot;
+	XMFLOAT3 fdir(0, 0, 1.f);
+	XMVECTOR dir = XMLoadFloat3(&fdir);
+
+	rot = XMMatrixRotationQuaternion(m_rot);
+	dir = XMVector3Transform(dir, rot);
+
+	return dir;
+}
+
 float gCamera::getAspectRatio() const
 {
 	return m_aspect;
@@ -321,7 +333,7 @@ void gCamera::lookAt( const XMFLOAT3& target )
 	XMFLOAT3 fup = XMFLOAT3(0, 0, 1.f);
 	XMVECTOR vup = XMLoadFloat3(&fup);
 	float yaw, pitch, roll;
-	_quatShortestArc( q, vup, dir );
+	_quatShortestArc( q, dir, vup );
 	_quatToYawPitchRoll( q, &yaw, &pitch, &roll );
 
 	_YawPitchRolltoQuat(q, yaw, pitch, roll);
@@ -347,17 +359,17 @@ void gCamera::_YPtoQuat()
 
 void gCamera::recompMatrices()
 {
-	XMMATRIX rot;
-	XMFLOAT3 fdir(0, 0, 1.f);
+	//XMMATRIX rot;
+	//XMFLOAT3 fdir(0, 0, 1.f);
 	XMFLOAT3 fup = XMFLOAT3(0, 1.0f, 0);
 	XMVECTOR up = XMLoadFloat3(&fup);
-	XMVECTOR dir = XMLoadFloat3(&fdir);
+	XMVECTOR dir = getDirectionVector(); //XMLoadFloat3(&fdir);
 
 	//XMMATRIXRotationQuaternion(&rot, &m_rot);
-	rot = XMMatrixRotationQuaternion( m_rot );
+	//rot = XMMatrixRotationQuaternion( m_rot );
 
 	//D3DXVec3TransformCoord(&dir, &dir, &rot);
-	dir = XMVector3Transform( dir, rot );
+	//dir = XMVector3Transform( dir, rot );
 	dir += m_pos;
 	//dir = XMVector3Normalize(dir);
 	//XMMATRIXLookAtLH( &m_mview, &m_pos, &dir, &XMFLOAT3(0, 1.0f, 0) );

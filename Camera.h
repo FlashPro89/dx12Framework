@@ -54,6 +54,8 @@ public:
 
 	const DirectX::XMVECTOR& getPosition( ) const;
 	const DirectX::XMVECTOR& getOrientation( ) const;
+	DirectX::XMVECTOR getDirectionVector() const;
+
 	float getAspectRatio() const;
 	float getFOV() const;
 	float getFarPlane() const;

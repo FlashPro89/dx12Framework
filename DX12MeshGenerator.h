@@ -175,7 +175,7 @@ public:
 
 			_v3 left = { 0,0,-1.f }; _v3 right = { 0,0,1.f };
 			_v3 top = { 1.f,0,0 }; _v3 down = { 1.f,0,0 };
-			_v3 front = { 1.f,0,0 }; _v3 back = { 1.f,0,0 };
+			_v3 front = { 1.f,0,0 }; _v3 back = { -1.f,0,0 };
 
 			tang[0] = front; tang[1] = front; tang[2] = front; tang[3] = front;
 			tang[4] = back; tang[5] = back; tang[6] = back; tang[7] = back;
@@ -201,7 +201,7 @@ public:
 			for (int i = 0; i < 24; i += 4)
 			{
 				tc[i].x = toffset;		tc[i].y = tscale;
-				tc[i+1].x = toffset;		tc[i+1].y = toffset;
+				tc[i+1].x = toffset;	tc[i+1].y = toffset;
 				tc[i + 2].x = tscale;	tc[i + 2].y = toffset;
 				tc[i + 3].x = tscale;	tc[i + 3].y = tscale;
 			}
