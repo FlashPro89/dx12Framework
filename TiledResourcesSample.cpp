@@ -534,17 +534,18 @@ bool TiledResourcesSample::initialize()
     if (FAILED(hr))
         throw("3DDevice->CreateCommittedResource() failed!");
 
-    D3D12_SUBRESOURCE_DATA srData = {};
-    srData.pData = offs.vdata;
-    srData.RowPitch = static_cast<LONG_PTR>(offs.vDataSize);
-    srData.SlicePitch = offs.vDataSize;
+    //D3D12_SUBRESOURCE_DATA srData = {};
+    //srData.pData = offs.vdata;
+    //srData.RowPitch = static_cast<LONG_PTR>(offs.vDataSize);
+    //srData.SlicePitch = offs.vDataSize;
 
     {
         CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
             m_cpVB.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-        UpdateSubresources(m_cpCommList.Get(), m_cpVB.Get(), m_spRingBuffer->getResource(),
-            offs.vDataOffset, 0, 1, &srData);
+        //UpdateSubresources(m_cpCommList.Get(), m_cpVB.Get(), m_spRingBuffer->getResource(),
+        //    offs.vDataOffset, 0, 1, &srData);
+        m_cpCommList->CopyBufferRegion(m_cpVB.Get(), 0, m_spRingBuffer->getResource(), offs.vDataOffset, offs.vDataSize);
         m_cpCommList->ResourceBarrier(1, &barrier);
     }
     //----------------------------------------------
@@ -560,17 +561,18 @@ bool TiledResourcesSample::initialize()
     if (FAILED(hr))
         throw("3DDevice->CreateCommittedResource() failed!");
 
-    srData = {};
-    srData.pData = offs.idata;
-    srData.RowPitch = static_cast<LONG_PTR>(offs.iDataSize);
-    srData.SlicePitch = offs.iDataSize;
+    //srData = {};
+    //srData.pData = offs.idata;
+    //srData.RowPitch = static_cast<LONG_PTR>(offs.iDataSize);
+    //srData.SlicePitch = offs.iDataSize;
 
     {
         CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
             m_cpIB.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-        UpdateSubresources(m_cpCommList.Get(), m_cpIB.Get(), m_spRingBuffer->getResource(),
-            offs.iDataOffset, 0, 1, &srData);
+        //UpdateSubresources(m_cpCommList.Get(), m_cpIB.Get(), m_spRingBuffer->getResource(),
+        //   offs.iDataOffset, 0, 1, &srData);
+        m_cpCommList->CopyBufferRegion(m_cpIB.Get(), 0, m_spRingBuffer->getResource(), offs.iDataOffset, offs.iDataSize);
         m_cpCommList->ResourceBarrier(1, &barrier);
     }
     //----------------------------------------------
@@ -652,6 +654,7 @@ bool TiledResourcesSample::beginCommandList()
         return false;
 
     if (FAILED(m_cpCommList->Reset(m_cpCommAllocator.Get(), m_cpPipelineState[1].Get())))
+    //if (FAILED(m_cpCommList->Reset(m_cpCommAllocator.Get(), nullptr)))
         return false;
 
     return true;
@@ -661,6 +664,9 @@ bool TiledResourcesSample::populateCommandList()
 {
     // Set necessary state.
     m_cpCommList->SetGraphicsRootSignature(m_cpRootSignature[1].Get());
+
+    //test set pipeline state:
+    //m_cpCommList->SetPipelineState(m_cpPipelineState[1].Get());
 
     ID3D12DescriptorHeap* ppHeaps[] = { m_cpSRVHeap.Get() };
     m_cpCommList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
