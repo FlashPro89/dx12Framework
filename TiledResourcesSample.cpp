@@ -458,11 +458,11 @@ bool TiledResourcesSample::initialize()
 	if (!initInput())
 		return false;
 
-    XMMATRIX mTang, mInvertedTang;
-    XMFLOAT3X3 mfInvertedTang, mfTang = { 0, 0, -1,  -1, 0, 0,   0, 1, 0 };
-    mTang = XMLoadFloat3x3(&mfTang);
-    mInvertedTang = XMMatrixInverse(nullptr, mTang);
-    XMStoreFloat3x3( &mfInvertedTang, mInvertedTang );
+    //XMMATRIX mTang, mInvertedTang;
+    //XMFLOAT3X3 mfInvertedTang, mfTang = { 0, 0, -1,  -1, 0, 0,   0, 1, 0 };
+    //mTang = XMLoadFloat3x3(&mfTang);
+    //mInvertedTang = XMMatrixInverse(nullptr, mTang);
+    //XMStoreFloat3x3( &mfInvertedTang, mInvertedTang );
    
     D3D12_FEATURE_DATA_D3D12_OPTIONS options = {};
     m_cpD3DDev->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &options, sizeof(options));
@@ -486,36 +486,36 @@ bool TiledResourcesSample::initialize()
     bool r = meshGen.buildIndexedCube(offs, 0.4f, 0.4f, 0.4f,false);
 
 
-    struct vert
-    {
-        float x, y, z;
-        float nx, ny, nz;
-        float tx, ty, tz;
-        float tu, tv;
-    };
+    //struct vert
+    //{
+    //    float x, y, z;
+    //    float nx, ny, nz;
+    //    float tx, ty, tz;
+    //    float tu, tv;
+    //};
 
-    
-    vert* _v = reinterpret_cast<vert*>(offs.vdata);
-    WORD* _i = reinterpret_cast<WORD*>(offs.idata);
-    FILE* f = 0;
+    //
+    //vert* _v = reinterpret_cast<vert*>(offs.vdata);
+    //WORD* _i = reinterpret_cast<WORD*>(offs.idata);
+    //FILE* f = 0;
 
-    auto err = fopen_s(&f, "out_box.txt", "wt");
-    for (int i = 0; i < 24; i++)
-    {
-        fprintf(f, "v%i: xyz: %f %f %f norm: %f %f %f tan: %f %f %f tc: %f %f\n",
-            i, _v->x, _v->y, _v->z, _v->nx, _v->ny, _v->nz,
-            _v->tx, _v->ty, _v->tz, _v->tu, _v->tv);
-        _v++;
-    }
+    //auto err = fopen_s(&f, "out_box.txt", "wt");
+    //for (int i = 0; i < 24; i++)
+    //{
+    //    fprintf(f, "v%i: xyz: %f %f %f norm: %f %f %f tan: %f %f %f tc: %f %f\n",
+    //        i, _v->x, _v->y, _v->z, _v->nx, _v->ny, _v->nz,
+    //        _v->tx, _v->ty, _v->tz, _v->tu, _v->tv);
+    //    _v++;
+    //}
 
-    for (int i = 0, c=0; i < 36; i += 3,c++)
-    {
-        fprintf(f, "t%i: %i %i %i\n",
-            c,_i[0], _i[1], _i[2] );
-        _i += 3;
-    }
+    //for (int i = 0, c=0; i < 36; i += 3,c++)
+    //{
+    //    fprintf(f, "t%i: %i %i %i\n",
+    //        c,_i[0], _i[1], _i[2] );
+    //    _i += 3;
+    //}
 
-    fclose(f);
+    //fclose(f);
 
 
     //----------------------------------------------
@@ -600,7 +600,7 @@ bool TiledResourcesSample::initialize()
         std::vector<D3D12_SUBRESOURCE_DATA> subResDataVector;
         ID3D12Resource* pResource;
 
-        HRESULT tlResult = LoadDDSTextureFromFile(m_cpD3DDev.Get(), L"..\\..\\текстуры\\metalfloor006a.dds",
+        HRESULT tlResult = LoadDDSTextureFromFile(m_cpD3DDev.Get(), L"..\\..\\текстуры\\stones.dds",
             &pResource, ddsData, subResDataVector);
         if (FAILED(tlResult))
         {
@@ -619,7 +619,7 @@ bool TiledResourcesSample::initialize()
         std::vector<D3D12_SUBRESOURCE_DATA> subResDataVector;
         ID3D12Resource* pResource;
 
-        HRESULT tlResult = LoadDDSTextureFromFile(m_cpD3DDev.Get(), L"..\\..\\текстуры\\four_NM_height.dds",
+        HRESULT tlResult = LoadDDSTextureFromFile(m_cpD3DDev.Get(), L"..\\..\\текстуры\\stones_NM_height.dds",
             &pResource, ddsData, subResDataVector);
         if (FAILED(tlResult))
         {
@@ -765,13 +765,13 @@ bool TiledResourcesSample::populateCommandList()
     // draw cube with reserved texture
     mTranslation = XMMatrixTranslation(1.f, 1.f, 0.f);
     mRotationX = XMMatrixRotationX(-m_lightRotAngle * 0.1f);
-    mRotationY = XMMatrixRotationY(XM_PIDIV2 / 2); // XM_PIDIV2/2
+    mRotationY = XMMatrixRotationY(-m_lightRotAngle * 0.1f); // XM_PIDIV2/2
     mRotationZ = XMMatrixRotationZ(-m_lightRotAngle * 0.1f);
     
-    //mWVP = mRotationX * mRotationY * mRotationZ * mTranslation * mVP;
-    mWVP =  mRotationY * mTranslation * mVP;
+    mWVP = mRotationX * mRotationY * mRotationZ * mTranslation * mVP;
+    //mWVP =  mRotationY * mTranslation * mVP;
     XMStoreFloat4x4(&fmWVP, XMMatrixTranspose(mWVP));
-    XMStoreFloat4x4(&fmW, XMMatrixTranspose( mRotationY * mTranslation ));
+    XMStoreFloat4x4(&fmW, XMMatrixTranspose(mRotationX * mRotationY * mRotationZ * mTranslation));
 
     //m_cpCommList->SetGraphicsRootDescriptorTable(3, h);
     m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &fmWVP, 0);
@@ -828,7 +828,7 @@ bool TiledResourcesSample::update()
     constexpr float curSpeedY = bufferHeight * 0.2f;
     float dt = m_spTimer->getDelta();
    
-    //m_lightRotAngle += dt * 1.03f;
+    m_lightRotAngle += dt * 0.4f;
 
     if (m_spInput)
         m_spInput->update();
@@ -1085,11 +1085,12 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         "{                                      \n"
         "    float4 pos : SV_POSITION;          \n"
         "    float2 texCoord : TEXCOORD0;        \n"
-        "    float4 lightVec : TEXCOORD1;       \n"
+        "    float4 lightVecTS : TEXCOORD1;       \n"
         "    float3 normal : TEXCOORD2;          \n"
         "    float3 binormal : TEXCOORD3;          \n"
         "    float3 tangent : TEXCOORD4;          \n"
-        "    float3 viewDir : TEXCOORD5;       \n"
+        "    float3 viewDirTS : TEXCOORD5;       \n"
+        //"    float2 parallaxOffset : TEXCOORD6;       \n"
         "}; \n\n"
 
         "struct sConstantBuffer                 \n"
@@ -1106,14 +1107,21 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         "   output.pos = mul( float4( input.pos, 1.0f), myCBuffer.wvpMat );\n"
         "   output.texCoord = input.texCoord;  \n"
 
-        "   output.normal = normalize( mul( float4(input.normal,0.f), myCBuffer.wMat ) ).xyz; \n"
-        "   output.tangent = normalize( mul( float4(input.tangent,0.f), myCBuffer.wMat ) ).xyz; \n"
+        "   output.normal = normalize( mul( input.normal, (float3x3)myCBuffer.wMat ) ).xyz; \n"
+        "   output.tangent = normalize( mul( input.tangent, (float3x3)myCBuffer.wMat ) ).xyz; \n"
         "   output.binormal = normalize( cross( output.tangent, output.normal ) ); \n"
 
         "   float3x3 mTangentSpace = float3x3( output.tangent, output.binormal, output.normal ); \n"
-        "   output.lightVec.xyz = mul( mTangentSpace, -normalize( myCBuffer.lightVec.xyz ) );   \n"
-        "   output.lightVec.w = myCBuffer.lightVec.w;   \n"
-        "   output.viewDir = mul( mTangentSpace, normalize( myCBuffer.viewDir ) );     \n"
+        "   output.lightVecTS.xyz = mul( mTangentSpace, -normalize( myCBuffer.lightVec.xyz ) );   \n"
+        "   output.lightVecTS.w = myCBuffer.lightVec.w;   \n"
+        "   output.viewDirTS = mul( mTangentSpace, normalize( myCBuffer.viewDir ) );     \n"
+        "   \n"
+        //"   float2 parallaxDirection = normalize(output.viewDirTS.xy);  \n"
+        //"   float viewDirLength = length(output.viewDirTS);    \n"
+        //"   float parallaxLength = sqrt(viewDirLength * viewDirLength - output.viewDirTS.z * output.viewDirTS.z) / output.viewDirTS.z; \n"
+        //"   output.parallaxOffset = parallaxDirection * parallaxLength; \n"
+        //"   output.parallaxOffset *= 0.02f; \n"
+        "   \n"
         "   return output;                          \n"
         "}\n";
 
@@ -1122,11 +1130,12 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         "{                                      \n"
         "    float4 position : SV_POSITION;     \n"
         "    float2 uv : TEXCOORD0;              \n"
-        "    float4 lightVec : TEXCOORD1;       \n"
+        "    float4 lightVecTS : TEXCOORD1;       \n"
         "    float3 normal : TEXCOORD2;          \n"
         "    float3 binormal : TEXCOORD3;          \n"
         "    float3 tangent : TEXCOORD4;          \n"
-        "    float3 viewDir : TEXCOORD5;       \n"
+        "    float3 viewDirTS : TEXCOORD5;       \n"
+        //"    float2 parallaxOffset : TEXCOORD6;       \n"
         "};                                     \n\n"
 
         "Texture2D g_texture : register(t0);       \n"
@@ -1136,16 +1145,20 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         " // lightVec.w = ambient intensivity \n"
         "float4 main(PSInput input) : SV_TARGET     \n"
         "{                                          \n"
-        "    float4 diffuseSample = g_texture.Sample(g_sampler, input.uv); \n"
-        "    float3 normalSample =  g_normMap.Sample(g_sampler, input.uv).xyz   * 2.f - 1.f; \n"
+        "// Simple Parallax Mappint implementation: \n"
+        "   const float sfHeightBias = 0.01;      \n"
+        "   float fCurrentHeight = g_normMap.Sample(g_sampler, input.uv).w;      \n"
+        "   float fHeight = fCurrentHeight * 0.005f + sfHeightBias;      \n"
+        "   fHeight /= input.viewDirTS.z;      \n"
+        "   float2 texSample = input.uv + input.viewDirTS.xy * fHeight;      \n"
 
-        //"    normalSample = mul( normalSample, mTangentSpace ); \n"
-        //"    normalize( normalSample ); \n"
-        // 
-        //"  float4 diffuseComponent =  input.lightVec.w + max( dot( input.normal, input.lightVec.xyz ), 0.f ); \n"
+        "    float4 diffuseSample = g_texture.Sample(g_sampler, texSample); \n"
+        "    float4 normalSample =  g_normMap.Sample(g_sampler, texSample); \n"
+        //"    float4 normalSample =  g_normMap.Sample(g_sampler, input.uv); \n"
+        "    normalSample.xyz =  normalSample.xyz  * 2.f - 1.f;        \n"
         "    float power = 24; \n"
-        "    float4 diffuseComponent = input.lightVec.w + max(dot( normalSample, input.lightVec.xyz), 0.f) * input.lightVec.w; \n"
-        "    float4 specularComponent = 0.7f * pow( max( dot( reflect( input.viewDir, normalSample ), input.lightVec.xyz ), 0.f ), power ); \n"
+        "    float4 diffuseComponent = input.lightVecTS.w + saturate( dot( normalSample.xyz, input.lightVecTS.xyz) ) * input.lightVecTS.w; \n"
+        "    float4 specularComponent = 0.7f * pow( saturate( dot( reflect( input.viewDirTS, normalSample.xyz ), input.lightVecTS.xyz ) ), power ); \n"
         "    float4 finalColor = ( specularComponent + diffuseComponent ) * diffuseSample;\n"
         "    return finalColor;                                         \n"
         "    //return float4( (normalSample.xyz+1) * 0.5f, 1.f );\n"
