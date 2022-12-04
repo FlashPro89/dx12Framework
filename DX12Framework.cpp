@@ -243,7 +243,7 @@ bool DX12Framework::initDefault()
     //-------------------------------------------------------------
     // Create DXGI factory
     //-------------------------------------------------------------
-    ComPtr < IDXGIFactory4 > factory;
+    ComPtr < IDXGIFactory7 > factory;
     DXASSERT(CreateDXGIFactory1(IID_PPV_ARGS(&factory)),
         "Cannot create DXGI Factory1!");
     DXASSERT(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory)),
@@ -328,13 +328,13 @@ void DX12Framework::GetHardwareAdapter(IDXGIFactory1* pFactory,
 
     ComPtr<IDXGIAdapter1> adapter;
 
-    ComPtr<IDXGIFactory6> factory6;
-    if (SUCCEEDED(pFactory->QueryInterface(IID_PPV_ARGS(&factory6))))
+    ComPtr<IDXGIFactory7> factory7;
+    if (SUCCEEDED(pFactory->QueryInterface(IID_PPV_ARGS(&factory7))))
     //if(false)
     {
         for (
             UINT adapterIndex = 0;
-            DXGI_ERROR_NOT_FOUND != factory6->EnumAdapterByGpuPreference(
+            DXGI_ERROR_NOT_FOUND != factory7->EnumAdapterByGpuPreference(
                 adapterIndex,
                 requestHighPerformanceAdapter == true ? DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE : DXGI_GPU_PREFERENCE_UNSPECIFIED,
                 IID_PPV_ARGS(&adapter));
@@ -424,8 +424,6 @@ bool DX12Framework::createDefaultCommandQueue()
 
 bool DX12Framework::createDevice(ComPtr<IDXGIFactory4> factory)
 {
-
-
     // Select Hardware or WARP adapter type
     if (m_useWARPDevice)
     {
@@ -649,14 +647,14 @@ bool DX12Framework::createDefaultPipelineState()
         "{                                   "
         "    float4 pos : POSITION;          "
         "    float2 texCoord : TEXCOORD;     "
-      "  float4 color : COLOR;              "
+        "    float4 color : COLOR;            "
         "};   "
 
         "struct VS_OUTPUT                       "
         "{                                      "
-        "   float4 pos : SV_POSITION;           "
+        "    float4 pos : SV_POSITION;           "
         "    float2 texCoord : TEXCOORD;        "
-      "    float4 color : COLOR;              "
+        "    float4 color : COLOR;              "
         "};                                     "
 
 

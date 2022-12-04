@@ -707,7 +707,7 @@ bool TiledResourcesSample::populateCommandList()
     XMMATRIX mWVP, mVP, mTranslation, mRotationX, mRotationY, mRotationZ;
     mVP = m_spCamera->getViewProjMatrix();
 
-    //draw cube with DDS testure
+    // draw cube with DDS testure
     mTranslation = XMMatrixTranslation(0.f, 0.f, 0.f);
     mWVP = mTranslation * mVP;
     XMStoreFloat4x4( &fmWVP, XMMatrixTranspose(mWVP) );
@@ -727,6 +727,21 @@ bool TiledResourcesSample::populateCommandList()
     m_cpCommList->SetGraphicsRoot32BitConstants( 0, 16, &fmWVP, 0 );
     m_cpCommList->SetGraphicsRoot32BitConstants( 0, 16, &fmW, 16 );
     m_cpCommList->DrawIndexedInstanced( 36, 1, 0, 0, 0 );
+
+    // draw light
+    {
+        constexpr float light_scale = 0.2f;
+        XMMATRIX mSc = XMMatrixScaling(light_scale, light_scale, light_scale);
+        mTranslation = XMMatrixTranslation(lightPos[0], lightPos[1], lightPos[2]);
+        mWVP = mSc * mTranslation * mVP;
+        XMStoreFloat4x4(&fmWVP, XMMatrixTranspose(mWVP));
+        XMStoreFloat4x4(&fmW, XMMatrixTranspose(mTranslation));
+
+        m_cpCommList->SetGraphicsRootDescriptorTable(3, h2);
+        m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &fmWVP, 0);
+        m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &fmW, 16);
+        m_cpCommList->DrawIndexedInstanced(36, 1, 0, 0, 0);
+    }
 
     // draw cube with reserved texture
     mTranslation = XMMatrixTranslation( 1.f, 0.f, 0.f );
@@ -1112,7 +1127,7 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         "   output.binormal = normalize( cross( output.tangent, output.normal ) ); \n"
 
         "   float3x3 mTangentSpace = float3x3( output.tangent, output.binormal, output.normal ); \n"
-        "   output.lightVecTS.xyz = mul( mTangentSpace, -normalize( myCBuffer.lightVec.xyz ) );   \n"
+        "   output.lightVecTS.xyz = mul( mTangentSpace, normalize( myCBuffer.lightVec.xyz ) );   \n"
         "   output.lightVecTS.w = myCBuffer.lightVec.w;   \n"
         "   output.viewDirTS = mul( mTangentSpace, normalize( myCBuffer.viewDir ) );     \n"
         "   \n"
@@ -1146,9 +1161,10 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         "float4 main(PSInput input) : SV_TARGET     \n"
         "{                                          \n"
         "// Simple Parallax Mappint implementation: \n"
-        "   const float sfHeightBias = 0.01;      \n"
+        "   const float sfHeightBias = 0.0001f;      \n"
+        "   const float sfHeightScale = 0.0005f;     \n"
         "   float fCurrentHeight = g_normMap.Sample(g_sampler, input.uv).w;      \n"
-        "   float fHeight = fCurrentHeight * 0.005f + sfHeightBias;      \n"
+        "   float fHeight = fCurrentHeight * sfHeightScale + sfHeightBias;      \n"
         "   fHeight /= input.viewDirTS.z;      \n"
         "   float2 texSample = input.uv + input.viewDirTS.xy * fHeight;      \n"
 

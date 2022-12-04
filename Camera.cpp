@@ -2,9 +2,9 @@
 #include "gmath.h"
 
 #define DEFAULT_CAM_TSPEED 1200.f
-#define DEFAULT_CAM_RSPEED 0.05f
+#define DEFAULT_CAM_RSPEED 0.5f
 #define DEFAULT_CAM_FOV    XM_PIDIV4 //D3DX_PI / 4.0f
-#define DEFAULT_CAM_FPLANE 10.f
+#define DEFAULT_CAM_FPLANE 100.f
 #define DEFAULT_CAM_NPLANE 1.f //FLT_EPSILON
 #define DEFAULT_CAM_ASPECT 1.333f
 #define DEFAULT_CAM_ROT_SMOOTH 0.7f
@@ -78,8 +78,8 @@ void gCamera::tick(float dt)
 	float x_f = prev_mouse_x * DEFAULT_CAM_ROT_SMOOTH + x * (1.f - DEFAULT_CAM_ROT_SMOOTH);
 	float y_f = prev_mouse_y * DEFAULT_CAM_ROT_SMOOTH + y * (1.f - DEFAULT_CAM_ROT_SMOOTH);
 
-	m_yaw += x_f * dt;
-	m_pitch += y_f * dt;
+	m_yaw += x_f * dt * m_rspeed;
+	m_pitch += y_f * dt * m_rspeed;
 	if (m_pitch > XM_PI / 2.5f)
 		m_pitch = XM_PI / 2.5f;
 	if (m_pitch < -XM_PI / 2.5f)
@@ -133,9 +133,7 @@ void gCamera::tick(float dt)
 	}
 
 	if (changed)
-	{
 		recompMatrices();
-	}
 }
 
 void gCamera::setMovementSpeed(float speed)

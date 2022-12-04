@@ -25,7 +25,7 @@ VS_OUTPUT main(VS_INPUT input)
 
 	VS_OUTPUT output;
 	//output.pos = mul(input.pos, wvpMat);
-	output.pos= input.pos;
+	output.pos = input.pos;
 
 	//output.pos.x = cos(myCBuffer.rot.x) * sqrt(input.pos.x* input.pos.x + input.pos.y* input.pos.y );
 	//output.pos.y = sin(myCBuffer.rot.x) * sqrt(input.pos.x * input.pos.x + input.pos.y * input.pos.y);
