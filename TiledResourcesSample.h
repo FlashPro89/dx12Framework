@@ -49,6 +49,7 @@ protected:
 	bool m_up;
 	float m_lightRotRadius;
 	float m_lightRotAngle;
+	float m_lightRotAngle2{};
 };
 
 #endif

@@ -791,9 +791,9 @@ bool TiledResourcesSample::populateCommandList()
 
     // draw cube with reserved texture
     mTranslation = XMMatrixTranslation(1.f, 1.f, 0.f);
-    mRotationX = XMMatrixRotationX(-m_lightRotAngle * 0.1f);
-    mRotationY = XMMatrixRotationY(-m_lightRotAngle * 0.1f); // XM_PIDIV2/2
-    mRotationZ = XMMatrixRotationZ(-m_lightRotAngle * 0.1f);
+    mRotationX = XMMatrixRotationX(m_lightRotAngle2);
+    mRotationY = XMMatrixRotationY(m_lightRotAngle2); // XM_PIDIV2/2
+    mRotationZ = XMMatrixRotationZ(m_lightRotAngle2);
     
     mWVP = mRotationX * mRotationY * mRotationZ * mTranslation * mVP;
     //mWVP =  mRotationY * mTranslation * mVP;
@@ -855,8 +855,13 @@ bool TiledResourcesSample::update()
     constexpr float curSpeedY = bufferHeight * 0.2f;
     float dt = m_spTimer->getDelta();
    
-    if (!m_spInput->isKeyPressed(DIK_SPACE))
+    static bool rotate = true;
+    if (m_spInput->isKeyDown(DIK_SPACE))
+        rotate = !rotate;
+
+    if (rotate)
         m_lightRotAngle += dt * 0.5f;
+    m_lightRotAngle2 += dt * 0.05f;
 
     if (m_spInput)
         m_spInput->update();
@@ -1059,7 +1064,7 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
 
         "   output.normal = normalize( mul( input.normal, (float3x3)myCBuffer.wMat ) ).xyz; \n"
         "   output.tangent = normalize( mul( input.tangent, (float3x3)myCBuffer.wMat ) ).xyz; \n"
-        "   output.binormal = normalize( cross( output.tangent, output.normal ) ); \n"
+        "   output.binormal = normalize( cross( output.normal, output.tangent ) ); \n"
 
         "   float3x3 mTangentSpace = float3x3( output.tangent, output.binormal, output.normal ); \n"
         "   output.lightVecTS.xyz = mul( mTangentSpace, normalize( myCBuffer.lightDir.xyz ) );   \n"
@@ -1092,12 +1097,12 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
 
         "   float3 viewDirTS = normalize(input.viewDirTS); \n"
         "   float3 lightVecTS = normalize(input.lightVecTS.xyz); \n"
-        "   const float sfHeightBias = 0.001f;      \n"
-        "   const float sfHeightScale = 0.005f;     \n"
+        "   const float sfHeightBias = -0.005f;      \n"
+        "   const float sfHeightScale = 0.02f;     \n"
         "   float fCurrentHeight = g_normMap.Sample(g_sampler, input.uv).w;      \n"
-        "   float fHeight = fCurrentHeight * sfHeightScale + sfHeightBias;      \n"
+        "   float fHeight = saturate(fCurrentHeight * sfHeightScale + sfHeightBias);      \n"
         "   fHeight /= viewDirTS.z;      \n"
-        "   float2 texSample = input.uv + viewDirTS.xy * clamp(fHeight, -1.f, 1.f);      \n"
+        "   float2 texSample = input.uv + viewDirTS.xy * fHeight;      \n"
 
         "    float4 diffuseSample = g_texture.Sample(g_sampler, texSample); \n"
         "    float4 normalSample =  g_normMap.Sample(g_sampler, texSample); \n"
