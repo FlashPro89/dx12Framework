@@ -715,19 +715,19 @@ bool TiledResourcesSample::populateCommandList()
 
     // setup light dir
     XMMATRIX mLightDirRotation = XMMatrixRotationRollPitchYaw(m_lightRotAngle, m_lightRotAngle / 2.f, 0.f);
-    XMFLOAT4 fLightPosDefault = XMFLOAT4(0.f, 0.f, m_lightRotRadius, 1.f);
-    XMVECTOR vLightPosDefault = XMLoadFloat4(&fLightPosDefault);
-    XMVECTOR vLightPos = XMVector3Transform(vLightPosDefault, mLightDirRotation);
-    XMFLOAT4 fLightPos;
-    XMStoreFloat4(&fLightPos, vLightPos);
-    fLightPos.w = 0.4f;
+    XMFLOAT4 fLightDirDefault = XMFLOAT4(0.f, 0.f, 1.f, 1.f);
+    XMVECTOR vLightDirDefault = XMLoadFloat4(&fLightDirDefault);
+    XMVECTOR vLightDir = XMVector3Transform(vLightDirDefault, mLightDirRotation);
+    XMFLOAT4 fLightDir;
+    XMStoreFloat4(&fLightDir, vLightDir);
+    fLightDir.w = 1.f; // diffuse intensivity
 
-    m_cpCommList->SetGraphicsRoot32BitConstants( 0, 4, &fLightPos, 32 );
+    m_cpCommList->SetGraphicsRoot32BitConstants( 0, 4, &fLightDir, 32 );
 
     // set view dir
-    XMFLOAT3 viewPos;
-    XMStoreFloat3( &viewPos, m_spCamera->getPosition());
-    m_cpCommList->SetGraphicsRoot32BitConstants( 0, 3, &viewPos, 36 );
+    XMFLOAT3 viewDir;
+    XMStoreFloat3( &viewDir, m_spCamera->getDirectionVector());
+    m_cpCommList->SetGraphicsRoot32BitConstants( 0, 3, &viewDir, 36 );
 
     m_cpCommList->SetGraphicsRootDescriptorTable( 3, h );
     m_cpCommList->SetGraphicsRoot32BitConstants( 0, 16, &fmWVP, 0 );
@@ -736,9 +736,15 @@ bool TiledResourcesSample::populateCommandList()
 
     // draw light
     {
+        XMFLOAT4 fLightPosDefault = XMFLOAT4(0.f, 0.f, m_lightRotRadius, 1.f);
+        XMVECTOR vLightPosDefault = XMLoadFloat4(&fLightPosDefault);
+        XMVECTOR vLightPos = XMVector3Transform(vLightPosDefault, mLightDirRotation);
+        XMFLOAT4 fLightPos;
+        XMStoreFloat4(&fLightPos, vLightPos);
+
         constexpr float light_scale = 0.2f;
         XMMATRIX mSc = XMMatrixScaling(light_scale, light_scale, light_scale);
-        mTranslation = XMMatrixTranslation(m_lightRotRadius * fLightVec.x, m_lightRotRadius * fLightVec.y, m_lightRotRadius * fLightVec.z);
+        mTranslation = XMMatrixTranslationFromVector(vLightPos);
         mWVP = mSc * mTranslation * mVP;
         XMStoreFloat4x4(&fmWVP, XMMatrixTranspose(mWVP));
         XMStoreFloat4x4(&fmW, XMMatrixTranspose(mTranslation));
@@ -1041,8 +1047,8 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         "{                                      \n"
         "    float4x4 wvpMat;                   \n"
         "    float4x4 wMat;                     \n"
-        "    float4 lightPos;                   \n"
-        "    float3 viewPos;                    \n"
+        "    float4 lightDir;                   \n"
+        "    float3 viewDir;                    \n"
         "};                                     \n\n"
         "ConstantBuffer<sConstantBuffer> myCBuffer : register(b0); \n\n"
         "VS_OUTPUT main(VS_INPUT input)         \n"
@@ -1056,8 +1062,8 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         "   output.binormal = normalize( cross( output.tangent, output.normal ) ); \n"
 
         "   float3x3 mTangentSpace = float3x3( output.tangent, output.binormal, output.normal ); \n"
-        "   output.lightVecTS.xyz = mul( mTangentSpace, normalize( myCBuffer.lightVec.xyz ) );   \n"
-        "   output.lightVecTS.w = myCBuffer.lightVec.w;   \n"
+        "   output.lightVecTS.xyz = mul( mTangentSpace, normalize( myCBuffer.lightDir.xyz ) );   \n"
+        "   output.lightVecTS.w = myCBuffer.lightDir.w;   \n"
         "   output.viewDirTS = mul( mTangentSpace, normalize( myCBuffer.viewDir ) );     \n"
         "   \n"
         "   return output;                          \n"
@@ -1082,23 +1088,26 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         " // lightVec.w = ambient intensivity \n"
         "float4 main(PSInput input) : SV_TARGET     \n"
         "{                                          \n"
-        "// Simple Parallax Mappint implementation: \n"
-        "   const float sfHeightBias = 0.0001f;      \n"
-        "   const float sfHeightScale = 0.0005f;     \n"
+        "// Simple Parallax Mapping implementation: \n"
+
+        "   float3 viewDirTS = normalize(input.viewDirTS); \n"
+        "   float3 lightVecTS = normalize(input.lightVecTS.xyz); \n"
+        "   const float sfHeightBias = 0.001f;      \n"
+        "   const float sfHeightScale = 0.005f;     \n"
         "   float fCurrentHeight = g_normMap.Sample(g_sampler, input.uv).w;      \n"
         "   float fHeight = fCurrentHeight * sfHeightScale + sfHeightBias;      \n"
-        "   fHeight /= input.viewDirTS.z;      \n"
-        "   float2 texSample = input.uv + input.viewDirTS.xy * fHeight;      \n"
+        "   fHeight /= viewDirTS.z;      \n"
+        "   float2 texSample = input.uv + viewDirTS.xy * clamp(fHeight, -1.f, 1.f);      \n"
 
         "    float4 diffuseSample = g_texture.Sample(g_sampler, texSample); \n"
         "    float4 normalSample =  g_normMap.Sample(g_sampler, texSample); \n"
         "    normalSample.xyz =  normalSample.xyz  * 2.f - 1.f;        \n"
-        "    float power = 24; \n"
-        "    float4 diffuseComponent = input.lightVecTS.w + saturate( dot( normalSample.xyz, input.lightVecTS.xyz) );// * input.lightVecTS.w; \n"
-        "    float4 specularComponent = 0.7f * pow( saturate( dot( reflect( input.viewDirTS, normalSample.xyz ), input.lightVecTS.xyz ) ), power ); \n"
-        "    float4 finalColor = ( specularComponent + diffuseComponent ) * diffuseSample;\n"
-        "    return finalColor;                                         \n"
-        "    //return float4( (normalSample.xyz+1) * 0.5f, 1.f );\n"
+        "    float power = 48; \n"
+        "    float4 ambientComponent = float4(0.1f, 0.1f, 0.1f, 1.f);   "
+        "    float4 diffuseComponent = saturate( dot( normalSample.xyz, lightVecTS.xyz) ) * input.lightVecTS.w; \n"
+        "    float4 specularComponent = pow( saturate( dot( reflect( viewDirTS, normalSample.xyz ), lightVecTS.xyz ) ), power ); \n"
+        "    float4 finalColor = ambientComponent + diffuseComponent * diffuseSample + specularComponent * float4(1.f, 1.f, 1.f, 1.f);\n"
+        "    return finalColor;  \n"
         "} \n";
 
 
