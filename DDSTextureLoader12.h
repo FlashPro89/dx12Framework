@@ -64,7 +64,7 @@ namespace DirectX
 
     HRESULT __cdecl LoadDDSTextureFromFile(
         _In_ ID3D12Device* d3dDevice,
-        _In_z_ const wchar_t* szFileName,
+        _In_z_ const char* szFileName,
         _Outptr_ ID3D12Resource** texture,
         std::unique_ptr<uint8_t[]>& ddsData,
         std::vector<D3D12_SUBRESOURCE_DATA>& subresources,
@@ -87,7 +87,7 @@ namespace DirectX
 
     HRESULT __cdecl LoadDDSTextureFromFileEx(
         _In_ ID3D12Device* d3dDevice,
-        _In_z_ const wchar_t* szFileName,
+        _In_z_ const char* szFileName,
         size_t maxsize,
         D3D12_RESOURCE_FLAGS resFlags,
         unsigned int loadFlags,

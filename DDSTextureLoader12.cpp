@@ -16,6 +16,7 @@
 
 #include "DDSTextureLoader12.h"
 
+#include <codecvt>
 #include <algorithm>
 #include <cassert>
 #include <memory>
@@ -251,7 +252,7 @@ namespace
 
     //--------------------------------------------------------------------------------------
     HRESULT LoadTextureDataFromFile(
-        _In_z_ const wchar_t* fileName,
+        _In_z_ const char* fileName,
         std::unique_ptr<uint8_t[]>& ddsData,
         const DDS_HEADER** header,
         const uint8_t** bitData,
@@ -266,7 +267,11 @@ namespace
 
 #ifdef WIN32
         // open the file
-        ScopedHandle hFile(safe_handle(CreateFile2(fileName,
+        using convert_typeX = std::codecvt_utf8<wchar_t>;
+        std::wstring_convert<convert_typeX, wchar_t> converterX;
+        std::wstring w_fileName = converterX.from_bytes(std::string(fileName));
+
+        ScopedHandle hFile(safe_handle(CreateFile2(w_fileName.c_str(),
             GENERIC_READ,
             FILE_SHARE_READ,
             OPEN_EXISTING,
@@ -1504,16 +1509,20 @@ namespace
 
     //--------------------------------------------------------------------------------------
     void SetDebugTextureInfo(
-        _In_z_ const wchar_t* fileName,
+        _In_z_ const char* fileName,
         _In_ ID3D12Resource** texture) noexcept
     {
 #if !defined(NO_D3D12_DEBUG_NAME) && ( defined(_DEBUG) || defined(PROFILE) )
         if (texture && *texture)
         {
-            const wchar_t* pstrName = wcsrchr(fileName, '\\');
+            using convert_typeX = std::codecvt_utf8<wchar_t>;
+            std::wstring_convert<convert_typeX, wchar_t> converterX;
+            std::wstring w_fileName = converterX.from_bytes(fileName);
+
+            const wchar_t* pstrName = wcsrchr(w_fileName.c_str(), '\\');
             if (!pstrName)
             {
-                pstrName = fileName;
+                pstrName = w_fileName.c_str();
             }
             else
             {
@@ -1626,7 +1635,7 @@ HRESULT DirectX::LoadDDSTextureFromMemoryEx(
 _Use_decl_annotations_
 HRESULT DirectX::LoadDDSTextureFromFile(
     ID3D12Device* d3dDevice,
-    const wchar_t* fileName,
+    const char* fileName,
     ID3D12Resource** texture,
     std::unique_ptr<uint8_t[]>& ddsData,
     std::vector<D3D12_SUBRESOURCE_DATA>& subresources,
@@ -1650,7 +1659,7 @@ HRESULT DirectX::LoadDDSTextureFromFile(
 _Use_decl_annotations_
 HRESULT DirectX::LoadDDSTextureFromFileEx(
     ID3D12Device* d3dDevice,
-    const wchar_t* fileName,
+    const char* fileName,
     size_t maxsize,
     D3D12_RESOURCE_FLAGS resFlags,
     unsigned int loadFlags,

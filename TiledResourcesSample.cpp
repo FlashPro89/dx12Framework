@@ -20,7 +20,7 @@ constexpr UINT RESERVER_RES_DHEAP_OFFSET = 7;
 //
 // ------------------------------------
 
-TiledResourcesSample::TiledResourcesSample(std::wstring name,
+TiledResourcesSample::TiledResourcesSample(std::string name,
     DX12Framework::DX12FRAMEBUFFERING buffering, bool useWARP) :
     DX12Framework(name, buffering, useWARP),
     m_cursourPosition(0, bufferHeight/2),
@@ -600,11 +600,11 @@ bool TiledResourcesSample::initialize()
         std::vector<D3D12_SUBRESOURCE_DATA> subResDataVector;
         ID3D12Resource* pResource;
 
-        HRESULT tlResult = LoadDDSTextureFromFile(m_cpD3DDev.Get(), L"..\\..\\текстуры\\stones.dds",
+        HRESULT tlResult = LoadDDSTextureFromFile(m_cpD3DDev.Get(), "../textures/stones.dds",
             &pResource, ddsData, subResDataVector);
         if (FAILED(tlResult))
         {
-            MessageBox(0, L"Cannot load texture!", L"Error", MB_OK | MB_ICONERROR);
+            MessageBox(0, "Cannot load texture!", "Error", MB_OK | MB_ICONERROR);
             return false;
         }
 
@@ -619,11 +619,11 @@ bool TiledResourcesSample::initialize()
         std::vector<D3D12_SUBRESOURCE_DATA> subResDataVector;
         ID3D12Resource* pResource;
 
-        HRESULT tlResult = LoadDDSTextureFromFile(m_cpD3DDev.Get(), L"..\\..\\текстуры\\stones_NM_height.dds",
+        HRESULT tlResult = LoadDDSTextureFromFile(m_cpD3DDev.Get(), "../textures/stones_NM_height.dds",
             &pResource, ddsData, subResDataVector);
         if (FAILED(tlResult))
         {
-            MessageBox(0, L"Cannot load normal map!", L"Error", MB_OK | MB_ICONERROR);
+            MessageBox(0, "Cannot load normal map!", "Error", MB_OK | MB_ICONERROR);
             return false;
         }
 
@@ -909,8 +909,8 @@ bool TiledResourcesSample::update()
 
 
     DX12WINDOWPARAMS wParams = m_spWindow->getWindowParameters();
-    wParams.name = L"Cur: " + std::to_wstring(m_cursourPosition.x) + L" "
-                           + std::to_wstring(m_cursourPosition.y);
+    wParams.name = "Cur: " + std::to_string(m_cursourPosition.x) + " "
+                           + std::to_string(m_cursourPosition.y);
     wParams.x = 100; wParams.y = 100;
     //m_spWindow->setWindowParameters(wParams);
 

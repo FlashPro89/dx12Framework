@@ -7,6 +7,25 @@
 #pragma comment( lib , "dxguid.lib" )
 #pragma comment( lib , "dxgi.lib" )
 
+namespace
+{
+    std::wstring s2ws(const std::string &str)
+    {
+        using convert_typeX = std::codecvt_utf8<wchar_t>;
+        std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+        return converterX.from_bytes(str);
+    }
+
+    std::string ws2s(const std::wstring &wstr)
+    {
+        using convert_typeX = std::codecvt_utf8<wchar_t>;
+        std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+        return converterX.to_bytes(wstr);
+    }
+};
+
 // WndProc
 LRESULT WINAPI _wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -33,7 +52,7 @@ DX12Framework::DX12Window::~DX12Window()
 {
     if (m_parameters.handle)
         DestroyWindow((HWND)m_parameters.handle);
-    UnregisterClass(L"DX12_FRAMEWORK_WND_CLS", GetModuleHandle(0));
+    UnregisterClass("DX12_FRAMEWORK_WND_CLS", GetModuleHandle(0));
 }
 
 void DX12Framework::DX12Window::showWindow(bool show)
@@ -73,7 +92,7 @@ bool DX12Framework::DX12Window::updateWindow()
     return UpdateWindow(static_cast<HWND>(m_parameters.handle));
 }
 
-void DX12Framework::DX12Window::setTitle( std::wstring title )
+void DX12Framework::DX12Window::setTitle( std::string title )
 {
     if(m_parameters.handle != 0)
         SetWindowText(m_parameters.handle, title.c_str());
@@ -87,17 +106,17 @@ bool DX12Framework::DX12Window::createWindow(const DX12WINDOWPARAMS& parameters)
 
     WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, _wndProc, 0L, 0L,
                   GetModuleHandle(NULL), NULL, LoadCursor(NULL, IDC_ARROW), NULL, NULL,
-                  L"DX12_FRAMEWORK_WND_CLS", NULL };
+                  "DX12_FRAMEWORK_WND_CLS", NULL };
 
-    ASSERT(RegisterClassEx(&wc), "Ошибка при регистрации класса окна!");
+    ASSERT(RegisterClassEx(&wc), "Can't register window class!");
 
     RECT rect;
     adjustRect(rect);
 
-    hWnd = CreateWindowEx(0, L"DX12_FRAMEWORK_WND_CLS", m_parameters.name.c_str(), WINDOW_STYLE,
+    hWnd = CreateWindowEx(0, "DX12_FRAMEWORK_WND_CLS", m_parameters.name.c_str(), WINDOW_STYLE,
         0, 0, rect.right, rect.bottom, 0, 0, 0, 0);
 
-    ASSERT( hWnd !=0, "Ошибка при создании окна!" );
+    ASSERT( hWnd !=0, "Can't create window!" );
 
     m_parameters.handle = hWnd;
 
@@ -123,7 +142,7 @@ void DX12Framework::DX12Window::adjustRect(RECT& _rect)
 //
  
 
-DX12Framework::DX12Framework( std::wstring name, DX12FRAMEBUFFERING buffering, 
+DX12Framework::DX12Framework( std::string name, DX12FRAMEBUFFERING buffering, 
     bool useWARP ) :
 	m_name(name), m_useWARPDevice(useWARP),
     m_frameIndex(0)
@@ -293,12 +312,9 @@ bool DX12Framework::initDefault()
     }
 
     // Set Window Title:
-    //using convert_typeX = std::codecvt_utf8<wchar_t>;
-    //std::wstring_convert<convert_typeX, wchar_t> converterX;
-
-    std::wstring sAdapter = (m_adapterDesc.Description);
-    std::wstring sTitle = m_name.c_str() + std::wstring(L" ( ") +
-        sAdapter + std::wstring(L" )");
+    std::string sAdapter(ws2s(std::wstring(m_adapterDesc.Description)));
+    std::string sTitle = m_name.c_str() + std::string(" ( ") +
+        sAdapter + std::string(" )");
     m_spWindow->setTitle(sTitle);
 
     return true;
