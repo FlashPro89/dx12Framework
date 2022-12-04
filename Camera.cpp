@@ -109,6 +109,8 @@ void gCamera::tick(float dt)
 	float target_current_speed = m_tspeed;
 	if (m_input->isKeyPressed(DIK_LSHIFT))
 		target_current_speed *= 2.f;
+	if (m_input->isKeyPressed(DIK_LCONTROL))
+		target_current_speed /= 10.f;
 	constexpr float linear_speed_smooth = 0.8f;
 	float linear_current_speed = prev_linear_speed * linear_speed_smooth + target_current_speed * (1.f - linear_speed_smooth);
 	prev_linear_speed = linear_current_speed;

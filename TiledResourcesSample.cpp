@@ -28,7 +28,7 @@ TiledResourcesSample::TiledResourcesSample(std::string name,
     m_fillingSize(0),
     m_left(false),
     m_up(false),
-    m_lightRotRadius( 5.f ),
+    m_lightRotRadius( 4.f ),
     m_lightRotAngle( 0.f )
 {
 
@@ -713,15 +713,21 @@ bool TiledResourcesSample::populateCommandList()
     XMStoreFloat4x4( &fmWVP, XMMatrixTranspose(mWVP) );
     XMStoreFloat4x4( &fmW, XMMatrixTranspose(mTranslation) );
 
-    // set light dir
-    float lightPos[4] = { cosf(m_lightRotAngle) * m_lightRotRadius, 0.f, 
-        sinf(m_lightRotAngle) * m_lightRotRadius, 0.4f };
-    m_cpCommList->SetGraphicsRoot32BitConstants( 0, 4, &lightPos, 32 );
+    // setup light dir
+    XMMATRIX mLightDirRotation = XMMatrixRotationRollPitchYaw(m_lightRotAngle, m_lightRotAngle / 2.f, 0.f);
+    XMFLOAT4 fLightPosDefault = XMFLOAT4(0.f, 0.f, m_lightRotRadius, 1.f);
+    XMVECTOR vLightPosDefault = XMLoadFloat4(&fLightPosDefault);
+    XMVECTOR vLightPos = XMVector3Transform(vLightPosDefault, mLightDirRotation);
+    XMFLOAT4 fLightPos;
+    XMStoreFloat4(&fLightPos, vLightPos);
+    fLightPos.w = 0.4f;
+
+    m_cpCommList->SetGraphicsRoot32BitConstants( 0, 4, &fLightPos, 32 );
 
     // set view dir
-    XMFLOAT3 viewDir;
-    XMStoreFloat3( &viewDir, m_spCamera->getDirectionVector());
-    m_cpCommList->SetGraphicsRoot32BitConstants( 0, 3, &viewDir, 36 );
+    XMFLOAT3 viewPos;
+    XMStoreFloat3( &viewPos, m_spCamera->getPosition());
+    m_cpCommList->SetGraphicsRoot32BitConstants( 0, 3, &viewPos, 36 );
 
     m_cpCommList->SetGraphicsRootDescriptorTable( 3, h );
     m_cpCommList->SetGraphicsRoot32BitConstants( 0, 16, &fmWVP, 0 );
@@ -732,7 +738,7 @@ bool TiledResourcesSample::populateCommandList()
     {
         constexpr float light_scale = 0.2f;
         XMMATRIX mSc = XMMatrixScaling(light_scale, light_scale, light_scale);
-        mTranslation = XMMatrixTranslation(lightPos[0], lightPos[1], lightPos[2]);
+        mTranslation = XMMatrixTranslation(m_lightRotRadius * fLightVec.x, m_lightRotRadius * fLightVec.y, m_lightRotRadius * fLightVec.z);
         mWVP = mSc * mTranslation * mVP;
         XMStoreFloat4x4(&fmWVP, XMMatrixTranspose(mWVP));
         XMStoreFloat4x4(&fmW, XMMatrixTranspose(mTranslation));
@@ -843,7 +849,8 @@ bool TiledResourcesSample::update()
     constexpr float curSpeedY = bufferHeight * 0.2f;
     float dt = m_spTimer->getDelta();
    
-    m_lightRotAngle += dt * 0.4f;
+    if (!m_spInput->isKeyPressed(DIK_SPACE))
+        m_lightRotAngle += dt * 0.5f;
 
     if (m_spInput)
         m_spInput->update();
@@ -971,12 +978,12 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
     rootParameters[3].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_PIXEL); // srv descriptor
 
     D3D12_STATIC_SAMPLER_DESC sampler[1] = {};
-    sampler[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+    sampler[0].Filter = D3D12_FILTER_ANISOTROPIC;//D3D12_FILTER_MIN_MAG_MIP_LINEAR;
     sampler[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
     sampler[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
     sampler[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
     sampler[0].MipLODBias = 0;
-    sampler[0].MaxAnisotropy = 0;
+    sampler[0].MaxAnisotropy = 16;
     sampler[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
     sampler[0].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
     sampler[0].MinLOD = 0.0f;
@@ -1010,83 +1017,6 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
     UINT compileFlags = 0;
 #endif
 
-    //const char vs_source[] =
-    //    "struct VS_INPUT                    \n"
-    //    "{                                   \n"
-    //    "    float3 pos : POSITION;          \n"
-    //    "    float3 normal : NORMAL;          \n"
-    //    "    float3 tangent : TANGENT;      \n"
-    //    "    float2 texCoord : TEXCOORD;     \n"
-    //    "};                                 \n\n"
-
-    //    "struct VS_OUTPUT                       \n"
-    //    "{                                      \n"
-    //    "    float4 pos : SV_POSITION;          \n"
-    //    "    float2 texCoord : TEXCOORD0;        \n"
-    //    "    float4 lightVec : TEXCOORD1;       \n"
-    //    "    float3 normal : TEXCOORD2;          \n"
-    //    "    float3 binormal : TEXCOORD3;          \n"
-    //    "    float3 tangent : TEXCOORD4;          \n"
-    //    "    float3 viewDir : TEXCOORD5;       \n"
-    //    "}; \n\n"
-
-    //    "struct sConstantBuffer                 \n"
-    //    "{                                      \n"
-    //    "    float4x4 wvpMat;                   \n"
-    //    "    float4x4 wMat;                     \n"
-    //    "    float4 lightVec;                   \n"  
-    //    "    float3 viewDir;                    \n"
-    //    "};                                     \n\n"
-    //    "ConstantBuffer<sConstantBuffer> myCBuffer : register(b0); \n\n"
-    //    "VS_OUTPUT main(VS_INPUT input)         \n"
-    //    "{                                      \n"
-    //    "   VS_OUTPUT output; \n"
-    //    "   output.pos = mul( float4( input.pos, 1.0f), myCBuffer.wvpMat );\n"
-    //    "   output.normal = normalize( mul( float4(input.normal,0.f), myCBuffer.wMat ) ).xyz; \n"
-    //    "   output.tangent = normalize( mul( float4(input.tangent,0.f), myCBuffer.wMat ) ).xyz; \n"
-    //    //"   output.tangent = input.tangent; \n"
-    //    "   output.binormal = cross( output.tangent, output.normal ); \n"
-    //    "   output.texCoord = input.texCoord;  \n"
-    //    "   output.lightVec.xyz = normalize( myCBuffer.lightVec.xyz);   \n"
-    //    "   output.lightVec.w = myCBuffer.lightVec.w;   \n"
-    //    "   output.viewDir = myCBuffer.viewDir;     \n"
-    //    "   return output;                          \n"
-    //    "}\n";
-
-    //const char ps_source[] =
-    //    "struct PSInput                         \n"
-    //    "{                                      \n"
-    //    "    float4 position : SV_POSITION;     \n"
-    //    "    float2 uv : TEXCOORD0;              \n"
-    //    "    float4 lightVec : TEXCOORD1;       \n"
-    //    "    float3 normal : TEXCOORD2;          \n"
-    //    "    float3 binormal : TEXCOORD3;          \n"
-    //    "    float3 tangent : TEXCOORD4;          \n"
-    //    "    float3 viewDir : TEXCOORD5;       \n"
-    //    "};                                     \n\n"
-
-    //    "Texture2D g_texture : register(t0);       \n"
-    //    "Texture2D g_normMap : register(t1);       \n"
-    //    "SamplerState g_sampler : register(s0);     \n\n"
-
-    //    " // lightVec.w = ambient intensivity \n"
-    //    "float4 main(PSInput input) : SV_TARGET     \n"
-    //    "{                                          \n"
-    //    "    //input.normal.z = -input.normal.z;      \n"
-    //    "    float4 diffuseSample = g_texture.Sample(g_sampler, input.uv); \n"
-    //    "    float3 normalSample =  g_normMap.Sample(g_sampler, input.uv).xyz   * 2.f - 1.f; \n"
-    //    "    float3x3 mTangentSpace = float3x3( input.tangent, input.binormal, input.normal ); \n"
-    //    "    normalSample = mul( normalSample, mTangentSpace ); \n"
-    //    //"    normalize( normalSample ); \n"
-    //    //"  float4 diffuseComponent =  input.lightVec.w + max( dot( input.normal, input.lightVec.xyz ), 0.f ); \n"
-    //    "    float4 diffuseComponent = input.lightVec.w + max(dot( normalSample, input.lightVec.xyz), 0.f); \n"
-    //    "    float4 finalColor = diffuseComponent;\n"// * diffuseSample;\n"
-    //    "    return finalColor;                                         \n"
-    //    "    //return float4( (normalSample.xyz+1) * 0.5f, 1.f );\n"
-    //    //"  return g_texture.SampleLevel( g_sampler, input.uv, 0); \n"
-    //    "} \n";
-
-
     const char vs_source[] =
         "struct VS_INPUT                    \n"
         "{                                   \n"
@@ -1105,15 +1035,14 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         "    float3 binormal : TEXCOORD3;          \n"
         "    float3 tangent : TEXCOORD4;          \n"
         "    float3 viewDirTS : TEXCOORD5;       \n"
-        //"    float2 parallaxOffset : TEXCOORD6;       \n"
         "}; \n\n"
 
         "struct sConstantBuffer                 \n"
         "{                                      \n"
         "    float4x4 wvpMat;                   \n"
         "    float4x4 wMat;                     \n"
-        "    float4 lightVec;                   \n"
-        "    float3 viewDir;                    \n"
+        "    float4 lightPos;                   \n"
+        "    float3 viewPos;                    \n"
         "};                                     \n\n"
         "ConstantBuffer<sConstantBuffer> myCBuffer : register(b0); \n\n"
         "VS_OUTPUT main(VS_INPUT input)         \n"
@@ -1131,12 +1060,6 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         "   output.lightVecTS.w = myCBuffer.lightVec.w;   \n"
         "   output.viewDirTS = mul( mTangentSpace, normalize( myCBuffer.viewDir ) );     \n"
         "   \n"
-        //"   float2 parallaxDirection = normalize(output.viewDirTS.xy);  \n"
-        //"   float viewDirLength = length(output.viewDirTS);    \n"
-        //"   float parallaxLength = sqrt(viewDirLength * viewDirLength - output.viewDirTS.z * output.viewDirTS.z) / output.viewDirTS.z; \n"
-        //"   output.parallaxOffset = parallaxDirection * parallaxLength; \n"
-        //"   output.parallaxOffset *= 0.02f; \n"
-        "   \n"
         "   return output;                          \n"
         "}\n";
 
@@ -1150,7 +1073,6 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         "    float3 binormal : TEXCOORD3;          \n"
         "    float3 tangent : TEXCOORD4;          \n"
         "    float3 viewDirTS : TEXCOORD5;       \n"
-        //"    float2 parallaxOffset : TEXCOORD6;       \n"
         "};                                     \n\n"
 
         "Texture2D g_texture : register(t0);       \n"
@@ -1170,15 +1092,13 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
 
         "    float4 diffuseSample = g_texture.Sample(g_sampler, texSample); \n"
         "    float4 normalSample =  g_normMap.Sample(g_sampler, texSample); \n"
-        //"    float4 normalSample =  g_normMap.Sample(g_sampler, input.uv); \n"
         "    normalSample.xyz =  normalSample.xyz  * 2.f - 1.f;        \n"
         "    float power = 24; \n"
-        "    float4 diffuseComponent = input.lightVecTS.w + saturate( dot( normalSample.xyz, input.lightVecTS.xyz) ) * input.lightVecTS.w; \n"
+        "    float4 diffuseComponent = input.lightVecTS.w + saturate( dot( normalSample.xyz, input.lightVecTS.xyz) );// * input.lightVecTS.w; \n"
         "    float4 specularComponent = 0.7f * pow( saturate( dot( reflect( input.viewDirTS, normalSample.xyz ), input.lightVecTS.xyz ) ), power ); \n"
         "    float4 finalColor = ( specularComponent + diffuseComponent ) * diffuseSample;\n"
         "    return finalColor;                                         \n"
         "    //return float4( (normalSample.xyz+1) * 0.5f, 1.f );\n"
-        //"  return g_texture.SampleLevel( g_sampler, input.uv, 0); \n"
         "} \n";
 
 
