@@ -2,11 +2,13 @@
 #include "gmath.h"
 
 #define DEFAULT_CAM_TSPEED 1200.f
-#define DEFAULT_CAM_RSPEED 0.9f
+#define DEFAULT_CAM_RSPEED 0.05f
 #define DEFAULT_CAM_FOV    XM_PIDIV4 //D3DX_PI / 4.0f
 #define DEFAULT_CAM_FPLANE 10.f
 #define DEFAULT_CAM_NPLANE 1.f //FLT_EPSILON
 #define DEFAULT_CAM_ASPECT 1.333f
+#define DEFAULT_CAM_ROT_SMOOTH 0.7f
+#define DEFAULT_CAM_TR_SMOOTH 0.8f
 #define MOUSE_MAX_MOVEMENT 15
 
 using namespace DirectX;
@@ -59,89 +61,75 @@ void gCamera::tick(float dt)
 {
 	bool changed = false;
 
-	if (m_input)
+	if (!m_input)
+		return;
+		
+	float x{}, y{};
+	if (m_input->isMousePressed(0))
 	{
+		x = static_cast<float>(m_input->getMouseX());
+		y = static_cast<float>(m_input->getMouseY());
+	} 
+
+	if (prev_mouse_x == 0.f && prev_mouse_y == 0.f && x == 0.f && y == 0.f)
+		return;
+	changed = true;
+
+	float x_f = prev_mouse_x * DEFAULT_CAM_ROT_SMOOTH + x * (1.f - DEFAULT_CAM_ROT_SMOOTH);
+	float y_f = prev_mouse_y * DEFAULT_CAM_ROT_SMOOTH + y * (1.f - DEFAULT_CAM_ROT_SMOOTH);
+
+	m_yaw += x_f * dt;
+	m_pitch += y_f * dt;
+	if (m_pitch > XM_PI / 2.5f)
+		m_pitch = XM_PI / 2.5f;
+	if (m_pitch < -XM_PI / 2.5f)
+		m_pitch = -XM_PI / 2.5f;
+
+	_YPtoQuat();
+
+	prev_mouse_x = x_f;
+	prev_mouse_y = y_f;
+
+	XMMATRIX mat_dir;
+	mat_dir = XMMatrixRotationQuaternion(m_rot);
+
+	XMFLOAT3 f3_dir_forward (0, 0, 1);
+	XMFLOAT3 f3_dir_left(-1, 0, 0);
+	XMFLOAT3 f3_dir_up(0, 1, 0);
+
+	XMVECTOR dir_forward = XMLoadFloat3( &f3_dir_forward );
+	XMVECTOR dir_left = XMLoadFloat3(&f3_dir_left);
+	XMVECTOR dir_up = XMLoadFloat3(&f3_dir_up);
+	
+	dir_forward = XMVector3TransformCoord(dir_forward, mat_dir);
+	XMVector3Normalize(dir_forward);
+	dir_left = XMVector3Cross(dir_forward, dir_up);
+	XMVector3Normalize(dir_left);
 		
-		if (m_input->isMousePressed(0))
-		{
-			changed = true;
+	float target_current_speed = m_tspeed;
+	if (m_input->isKeyPressed(DIK_LSHIFT))
+		target_current_speed *= 2.f;
+	constexpr float linear_speed_smooth = 0.8f;
+	float linear_current_speed = prev_linear_speed * linear_speed_smooth + target_current_speed * (1.f - linear_speed_smooth);
+	prev_linear_speed = linear_current_speed;
 
-			int x = m_input->getMouseX();
-			int y = m_input->getMouseY();
+	float vel_f{}, vel_s{};
+	if (m_input->isKeyPressed(DIK_W)) vel_f += dt * linear_current_speed;
+	if (m_input->isKeyPressed(DIK_S)) vel_f -= dt * linear_current_speed;
+	if (m_input->isKeyPressed(DIK_A)) vel_s += dt * linear_current_speed;
+	if (m_input->isKeyPressed(DIK_D)) vel_s -= dt * linear_current_speed;
 
-			if (abs(x) > MOUSE_MAX_MOVEMENT)
-			{
-				if (x < 0)
-					x = MOUSE_MAX_MOVEMENT;
-				else
-					x = -MOUSE_MAX_MOVEMENT;
-			}
+	if (vel_f != 0.f || vel_s != 0.f || prev_vel_f != 0.f || prev_vel_s != 0.f)
+	{
+		changed = true;
 
-			if (abs(y) > MOUSE_MAX_MOVEMENT)
-			{
-				if (y < 0)
-					y = MOUSE_MAX_MOVEMENT;
-				else
-					y = -MOUSE_MAX_MOVEMENT;
-			}
+		vel_f = prev_vel_f * DEFAULT_CAM_TR_SMOOTH + vel_f * (1.f - DEFAULT_CAM_TR_SMOOTH);
+		vel_s = prev_vel_s * DEFAULT_CAM_TR_SMOOTH + vel_s * (1.f - DEFAULT_CAM_TR_SMOOTH);
 
-			m_yaw += x * dt * m_rspeed;
+		m_pos += dir_forward * vel_f + dir_left * vel_s;
 
-			m_pitch += y * dt * m_rspeed;
-			if (m_pitch > XM_PI / 2.5f)
-				m_pitch = XM_PI / 2.5f;
-			if (m_pitch < -XM_PI / 2.5f)
-				m_pitch = -XM_PI / 2.5f;
-
-			_YPtoQuat();
-		}
-
-		XMMATRIX mat_dir;
-		//D3DXRotationQuaternion(&mat_dir, &m_rot);
-		mat_dir = XMMatrixRotationQuaternion(m_rot);
-		//XMMatrixTranspose(mat_dir);
-
-		XMFLOAT3 f3_dir_forward (0, 0, 1);
-		XMFLOAT3 f3_dir_left(-1, 0, 0);
-		XMFLOAT3 f3_dir_up(0, 1, 0);
-
-		XMVECTOR dir_forward = XMLoadFloat3( &f3_dir_forward );
-		XMVECTOR dir_left = XMLoadFloat3(&f3_dir_left);
-		XMVECTOR dir_up = XMLoadFloat3(&f3_dir_up);
-
-		//D3DXVec3TransformCoord(&dir_forward, &dir_forward, &mat_dir);
-		dir_forward = XMVector3TransformCoord(dir_forward, mat_dir);
-
-		//D3DXVec3Normalize(&dir_forward, &dir_forward);
-		XMVector3Normalize(dir_forward);
-
-		//D3DXVec3Cross(&dir_left, &dir_forward, &dir_up);
-		dir_left = XMVector3Cross(dir_forward, dir_up);
-
-		//D3DXVec3Normalize(&dir_left, &dir_left);
-		XMVector3Normalize(dir_left);
-		
-		if (m_input->isKeyPressed(DIK_W))
-		{
-			m_pos += dir_forward * dt * m_tspeed;
-			changed = true;
-		}
-		if (m_input->isKeyPressed(DIK_S))
-		{
-			m_pos -= dir_forward * dt * m_tspeed;
-			changed = true;
-		}
-		if (m_input->isKeyPressed(DIK_A))
-		{
-			m_pos += dir_left * dt * m_tspeed;
-			changed = true;
-		}
-		if (m_input->isKeyPressed(DIK_D))
-		{
-			m_pos -= dir_left * dt * m_tspeed;
-			changed = true;
-		}
-
+		prev_vel_f = vel_f;
+		prev_vel_s = vel_s;
 	}
 
 	if (changed)
