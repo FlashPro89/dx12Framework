@@ -687,7 +687,7 @@ bool TiledResourcesSample::populateCommandList()
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_cpRTVHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
     CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_cpDSVHeap->GetCPUDescriptorHandleForHeapStart());
 
-    //With DS
+    // With DS
     m_cpCommList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
 
     // Record commands.
@@ -707,7 +707,8 @@ bool TiledResourcesSample::populateCommandList()
     XMMATRIX mWVP, mVP, mTranslation, mRotationX, mRotationY, mRotationZ;
     mVP = m_spCamera->getViewProjMatrix();
 
-    // draw cube with DDS testure
+    // ----------------------------------------------------
+    // draw cubes:
     mTranslation = XMMatrixTranslation(0.f, 0.f, 0.f);
     mWVP = mTranslation * mVP;
     XMStoreFloat4x4( &fmWVP, XMMatrixTranspose(mWVP) );
@@ -715,12 +716,11 @@ bool TiledResourcesSample::populateCommandList()
 
     // setup light dir
     XMMATRIX mLightDirRotation = XMMatrixRotationRollPitchYaw(m_lightRotAngle, m_lightRotAngle / 2.f, 0.f);
-    XMFLOAT4 fLightDirDefault = XMFLOAT4(0.f, 0.f, 1.f, 1.f);
-    XMVECTOR vLightDirDefault = XMLoadFloat4(&fLightDirDefault);
+    XMFLOAT3 fLightDirDefault = XMFLOAT3(0.f, 0.f, 1.f);
+    XMVECTOR vLightDirDefault = XMLoadFloat3(&fLightDirDefault);
     XMVECTOR vLightDir = XMVector3Transform(vLightDirDefault, mLightDirRotation);
-    XMFLOAT4 fLightDir;
-    XMStoreFloat4(&fLightDir, vLightDir);
-    fLightDir.w = 1.f; // diffuse intensivity
+    XMFLOAT3 fLightDir;
+    XMStoreFloat3(&fLightDir, vLightDir);
 
     m_cpCommList->SetGraphicsRoot32BitConstants( 0, 4, &fLightDir, 32 );
 
@@ -736,15 +736,9 @@ bool TiledResourcesSample::populateCommandList()
 
     // draw light
     {
-        XMFLOAT4 fLightPosDefault = XMFLOAT4(0.f, 0.f, m_lightRotRadius, 1.f);
-        XMVECTOR vLightPosDefault = XMLoadFloat4(&fLightPosDefault);
-        XMVECTOR vLightPos = XMVector3Transform(vLightPosDefault, mLightDirRotation);
-        XMFLOAT4 fLightPos;
-        XMStoreFloat4(&fLightPos, vLightPos);
-
         constexpr float light_scale = 0.2f;
         XMMATRIX mSc = XMMatrixScaling(light_scale, light_scale, light_scale);
-        mTranslation = XMMatrixTranslationFromVector(vLightPos);
+        mTranslation = XMMatrixTranslation(-m_lightRotRadius * fLightDir.x, -m_lightRotRadius * fLightDir.y, -m_lightRotRadius * fLightDir.z);
         mWVP = mSc * mTranslation * mVP;
         XMStoreFloat4x4(&fmWVP, XMMatrixTranspose(mWVP));
         XMStoreFloat4x4(&fmW, XMMatrixTranspose(mTranslation));
@@ -1041,7 +1035,7 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         "{                                      \n"
         "    float4 pos : SV_POSITION;          \n"
         "    float2 texCoord : TEXCOORD0;        \n"
-        "    float4 lightVecTS : TEXCOORD1;       \n"
+        "    float4 invLightDirTS : TEXCOORD1;       \n"
         "    float3 normal : TEXCOORD2;          \n"
         "    float3 binormal : TEXCOORD3;          \n"
         "    float3 tangent : TEXCOORD4;          \n"
@@ -1063,12 +1057,12 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         "   output.texCoord = input.texCoord;  \n"
 
         "   output.normal = normalize( mul( input.normal, (float3x3)myCBuffer.wMat ) ).xyz; \n"
-        "   output.tangent = normalize( mul( input.tangent, (float3x3)myCBuffer.wMat ) ).xyz; \n"
-        "   output.binormal = normalize( cross( output.normal, output.tangent ) ); \n"
+        "   output.tangent = output.tangent = normalize( mul( input.tangent, (float3x3)myCBuffer.wMat ) ).xyz; \n"
+        "   output.binormal = normalize( cross( output.tangent, output.normal ) ); \n"
 
         "   float3x3 mTangentSpace = float3x3( output.tangent, output.binormal, output.normal ); \n"
-        "   output.lightVecTS.xyz = mul( mTangentSpace, normalize( myCBuffer.lightDir.xyz ) );   \n"
-        "   output.lightVecTS.w = myCBuffer.lightDir.w;   \n"
+        "   output.invLightDirTS.xyz = mul( -normalize( myCBuffer.lightDir.xyz ), mTangentSpace );   \n"
+        "   output.invLightDirTS.w = myCBuffer.lightDir.w;   \n"
         "   output.viewDirTS = mul( mTangentSpace, normalize( myCBuffer.viewDir ) );     \n"
         "   \n"
         "   return output;                          \n"
@@ -1079,7 +1073,7 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         "{                                      \n"
         "    float4 position : SV_POSITION;     \n"
         "    float2 uv : TEXCOORD0;              \n"
-        "    float4 lightVecTS : TEXCOORD1;       \n"
+        "    float4 invLightDirTS : TEXCOORD1;       \n"
         "    float3 normal : TEXCOORD2;          \n"
         "    float3 binormal : TEXCOORD3;          \n"
         "    float3 tangent : TEXCOORD4;          \n"
@@ -1096,12 +1090,13 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         "// Simple Parallax Mapping implementation: \n"
 
         "   float3 viewDirTS = normalize(input.viewDirTS); \n"
-        "   float3 lightVecTS = normalize(input.lightVecTS.xyz); \n"
+        "   float3 invLightDirTS = normalize(input.invLightDirTS.xyz); \n"
         "   const float sfHeightBias = -0.005f;      \n"
         "   const float sfHeightScale = 0.02f;     \n"
         "   float fCurrentHeight = g_normMap.Sample(g_sampler, input.uv).w;      \n"
         "   float fHeight = saturate(fCurrentHeight * sfHeightScale + sfHeightBias);      \n"
-        "   fHeight /= viewDirTS.z;      \n"
+        "   viewDirTS.y = -viewDirTS.y;\n"
+        "   fHeight /= min(viewDirTS.z, -0.25f);      \n"
         "   float2 texSample = input.uv + viewDirTS.xy * fHeight;      \n"
 
         "    float4 diffuseSample = g_texture.Sample(g_sampler, texSample); \n"
@@ -1109,10 +1104,9 @@ bool TiledResourcesSample::createRootSignatureAndPSO()
         "    normalSample.xyz =  normalSample.xyz  * 2.f - 1.f;        \n"
         "    float power = 48; \n"
         "    float4 ambientComponent = float4(0.1f, 0.1f, 0.1f, 1.f);   "
-        "    float4 diffuseComponent = saturate( dot( normalSample.xyz, lightVecTS.xyz) ) * input.lightVecTS.w; \n"
-        "    float4 specularComponent = pow( saturate( dot( reflect( viewDirTS, normalSample.xyz ), lightVecTS.xyz ) ), power ); \n"
-        "    float4 finalColor = ambientComponent + diffuseComponent * diffuseSample + specularComponent * float4(1.f, 1.f, 1.f, 1.f);\n"
-        "    return finalColor;  \n"
+        "    float4 diffuseComponent = saturate( dot( normalSample.xyz, invLightDirTS.xyz) ); \n"
+        "    float4 specularComponent = pow( saturate( dot( reflect( viewDirTS, normalSample.xyz ), invLightDirTS.xyz ) ), power ); \n"
+        "    return ambientComponent + diffuseComponent * diffuseSample + specularComponent * float4(1.f, 1.f, 1.f, 1.f);\n"
         "} \n";
 
 
