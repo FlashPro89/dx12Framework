@@ -224,7 +224,7 @@ bool ParallaxMappingSample::populateCommandList()
 
     XMFLOAT4X4 fmWVP;
     XMFLOAT4X4 fmW;
-    XMMATRIX mWVP, mVP, mTranslation, mRotationX, mRotationY, mRotationZ;
+    XMMATRIX mWVP, mVP, mTranslation;
     mVP = m_spCamera->getViewProjMatrix();
 
     // ----------------------------------------------------
