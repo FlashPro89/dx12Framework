@@ -411,8 +411,6 @@ bool TiledResourceSample::initialize()
         CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
             m_cpIB.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-        //UpdateSubresources(m_cpCommList.Get(), m_cpIB.Get(), m_spRingBuffer->getResource(),
-        //   offs.iDataOffset, 0, 1, &srData);
         m_cpCommList->CopyBufferRegion(m_cpIB.Get(), 0, m_spRingBuffer->getResource(), offs.iDataOffset, offs.iDataSize);
         m_cpCommList->ResourceBarrier(1, &barrier);
     }
@@ -657,7 +655,7 @@ bool TiledResourceSample::createRootSignatureAndPSO()
     ComPtr<ID3DBlob> pixelShader;
     ID3DBlob* errorBlob;
 
-    std::wstring w_fileName = L"../shaders/TiledResourceSample.hlsl";
+    std::wstring w_fileName = L"../shaders/TemplateProject.hlsl";
    
     if (FAILED(D3DCompileFromFile(w_fileName.c_str(), nullptr, nullptr, "vs_main",
         "vs_5_1", compileFlags, 0, &vertexShader, &errorBlob)))

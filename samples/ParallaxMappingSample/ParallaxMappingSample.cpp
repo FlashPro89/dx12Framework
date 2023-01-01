@@ -3,15 +3,6 @@
 #include <string>
 #include <codecvt>
 
-constexpr UINT reservedWidth = 512;
-constexpr UINT reservedHeight = 512;
-constexpr UINT bufferWidth = 2048;
-constexpr UINT bufferHeight = 2048;
-constexpr UINT RESERVER_RES_DHEAP_OFFSET = 7;
-
-#define FILTER(x,y)(x&0x1 ^ y&0x1) != 0
-#define HEAP_SIZE(numTiles)(numTiles / 2 + 1 ) * D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT
-
 // ------------------------------------
 //
 //		*** class ParallaxMappingSample ***
@@ -317,8 +308,6 @@ bool ParallaxMappingSample::executeCommandListAndPresent()
 bool ParallaxMappingSample::update()
 {
     constexpr float speed = 0.5f;
-    constexpr float curSpeedX = bufferWidth*0.2f;
-    constexpr float curSpeedY = bufferHeight * 0.2f;
     float dt = m_spTimer->getDelta();
    
     static bool rotate = true;
