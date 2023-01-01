@@ -101,23 +101,18 @@ bool DX12Framework::DX12Window::createWindow(const DX12WINDOWPARAMS& parameters)
 {
     m_parameters = parameters;
 
-    HWND hWnd = 0;
-
     WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, _wndProc, 0L, 0L,
                   GetModuleHandle(NULL), NULL, LoadCursor(NULL, IDC_ARROW), NULL, NULL,
                   "DX12_FRAMEWORK_WND_CLS", NULL };
-
     ASSERT(RegisterClassEx(&wc), "Can't register window class!");
 
     RECT rect;
     adjustRect(rect);
 
-    hWnd = CreateWindowEx(0, "DX12_FRAMEWORK_WND_CLS", m_parameters.name.c_str(), WINDOW_STYLE,
+    m_parameters.handle = CreateWindowEx(0, "DX12_FRAMEWORK_WND_CLS", m_parameters.name.c_str(), WINDOW_STYLE,
         0, 0, rect.right, rect.bottom, 0, 0, 0, 0);
 
-    ASSERT( hWnd != 0, "Can't create window!" );
-
-    m_parameters.handle = hWnd;
+    ASSERT(m_parameters.handle, "Can't create window!" );
 
     return true;
 }

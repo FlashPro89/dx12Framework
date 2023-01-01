@@ -36,7 +36,7 @@ using Microsoft::WRL::ComPtr;
 #define ASSERT(r,msg) assert( r && msg )
 #else
 #define ASSERT(r,msg) r
-#define DXASSERT(hr) hr
+#define DXASSERT(hr, msg) hr
 #endif
 
 #define WINDOW_STYLE ( WS_OVERLAPPED | WS_SYSMENU | WS_MINIMIZEBOX | WS_CAPTION )
