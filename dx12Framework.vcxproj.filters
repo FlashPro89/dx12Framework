@@ -1,0 +1,69 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="source">
+      <UniqueIdentifier>{5a64f382-2dfe-4a71-93da-9fb388e8ab76}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include">
+      <UniqueIdentifier>{95a8d720-588f-4f51-8cdd-7c14d6533d7a}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\Camera.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ColDet.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DDSTextureLoader12.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DX12Framework.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\gmath.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Input.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Timer.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RingUploadBuffer.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\Camera.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ColDet.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\d3dx12.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\DDSTextureLoader12.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\DX12Framework.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\DX12MeshGenerator.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\gmath.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Input.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Timer.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\RingUploadBuffer.h">
+      <Filter>include</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
