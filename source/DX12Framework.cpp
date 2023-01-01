@@ -831,6 +831,26 @@ void DX12Framework::MoveToNextFrame()
     m_fenceValues[m_frameIndex] = currentFenceValue + 1;
 }
 
+void DX12Framework::createSRVTex2D(ID3D12Resource *pResourse, UINT heapOffsetInDescriptors)
+{
+    assert(pResourse != 0 && "null ID3D12Resource ptr!");
+
+    // Describe and create a SRV for the texture.
+    D3D12_RESOURCE_DESC desc = pResourse->GetDesc();
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Format = desc.Format;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = desc.MipLevels;
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE h = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_cpSRVHeap->GetCPUDescriptorHandleForHeapStart(),
+        heapOffsetInDescriptors, m_srvDescriptorSize);
+
+    m_cpD3DDev->CreateShaderResourceView(pResourse, &srvDesc, h);
+}
+
 bool DX12Framework::uploadSubresources( ID3D12Resource* pResource, UINT subResNum,
     const D3D12_SUBRESOURCE_DATA* srDataArray )
 {
@@ -847,23 +867,6 @@ bool DX12Framework::uploadSubresources( ID3D12Resource* pResource, UINT subResNu
     ADDRESS uploadOffset;
     void* lpUploadPtr = m_spRingBuffer->allocate(0, uploadBufferSize,
         aligment, &uploadOffset);
-/*
-    if (!lpUploadPtr) // закончилась очередь загрузки
-    {
-        if (!endCommandList())
-            exit(-1);
-        WaitForPreviousFrame();
-        if (!beginCommandList())
-            exit(-1);
-
-        spRingBuffer->clearQueue();
-        lpUploadPtr = spRingBuffer->allocate(0, uploadBufferSize,
-            aligment, &uploadOffset);
-
-        if (!lpUploadPtr)
-            exit(-1);
-    }
-    */
 
     CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
         pResource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);

@@ -28,7 +28,6 @@ public:
 	bool render();
 protected:
 	bool createRootSignatureAndPSO();
-	void createSRVTex2D(ID3D12Resource* pResourse, UINT heapOffsetInDescriptors);
 	bool createReservedResource();
 
 	D3D12_VERTEX_BUFFER_VIEW m_vb;

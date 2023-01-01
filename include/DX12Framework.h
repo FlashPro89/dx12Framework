@@ -136,6 +136,8 @@ protected:
 	void WaitForGpu();
 	void MoveToNextFrame();
 
+	void createSRVTex2D(ID3D12Resource *pResourse, UINT heapOffsetInDescriptors);
+
 	//upload to default mem pool
 	bool uploadSubresources( ID3D12Resource* pResource, UINT subResNum,
 		const D3D12_SUBRESOURCE_DATA* srDataArray );
