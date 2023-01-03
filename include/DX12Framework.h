@@ -147,15 +147,17 @@ protected:
 	bool m_useWARPDevice{false};
 
 	D3D_DRIVER_TYPE                     m_driverType = D3D_DRIVER_TYPE_NULL;
-	ComPtr< ID3D12Device >              m_cpD3DDev;
+	ComPtr< ID3D12Device5 >             m_cpD3DDev;
 	ComPtr< ID3D12CommandQueue >        m_cpCommQueue;
 	ComPtr< ID3D12CommandAllocator >    m_cpCommAllocator;
-	ComPtr< ID3D12GraphicsCommandList > m_cpCommList;
+	ComPtr< ID3D12GraphicsCommandList4 > m_cpCommList;
+	ComPtr<ID3D12StateObject>			m_cpStateObject;
 	ComPtr< IDXGISwapChain3 >           m_cpSwapChain;
 	ComPtr< ID3D12DescriptorHeap >      m_cpRTVHeap;
 	ComPtr< ID3D12DescriptorHeap >      m_cpCBVSrvHeap;
 	ComPtr< ID3D12DescriptorHeap >      m_cpDSVHeap;
 	ComPtr< ID3D12DescriptorHeap >      m_cpSRVHeap;
+	ComPtr< ID3D12DescriptorHeap >      m_cpUAVHeap;
 	ComPtr< ID3D12RootSignature >       m_cpRootSignature[MAXROOTSIGNATURESNUM];
 	ComPtr< ID3D12PipelineState >       m_cpPipelineState[MAXPIPELINESTATESNUM];
 	ComPtr< ID3D12Resource >            m_cpRenderTargets[MAXFRAMESNUM];

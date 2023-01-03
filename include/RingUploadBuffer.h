@@ -38,7 +38,7 @@ public:
 	~RingUploadBuffer();
 
 	bool initialize( ADDRESS uploadBufferSize );
-	void* allocate( UINT frameId, ADDRESS size, ADDRESS align, ADDRESS* pOutOffset = nullptr );
+	void* allocate( UINT frameId, ADDRESS size, ADDRESS align = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT, ADDRESS* pOutOffset = nullptr );
 	UINT64 getAvailableAllocationSize(ADDRESS align) const;
 
 	void frameEnded( UINT frameId ); // free allocations linked with frame id and previous frames id

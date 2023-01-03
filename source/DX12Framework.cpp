@@ -521,6 +521,16 @@ bool DX12Framework::createDescriptorHeaps()
         return false;
     m_srvDescriptorSize = m_cpD3DDev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
+    //-------------------------------------------------------------
+    // Describe and create a Unordered Access View (UAV) heap for RT/compute.
+    //-------------------------------------------------------------
+    D3D12_DESCRIPTOR_HEAP_DESC uavHeapDesc = {};
+    uavHeapDesc.NumDescriptors = 1;
+    uavHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    uavHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    if (FAILED(m_cpD3DDev->CreateDescriptorHeap(&uavHeapDesc, IID_PPV_ARGS(&m_cpUAVHeap))))
+        return false;
+
     return true;
 }
 

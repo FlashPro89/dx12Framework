@@ -181,11 +181,6 @@ bool TemplateProject::populateCommandList()
     mWVP = mTranslation * mVP;
     XMStoreFloat4x4( &fmWVP, XMMatrixTranspose(mWVP) );
 
-    // set view dir
-    XMFLOAT3 viewDir;
-    XMStoreFloat3( &viewDir, m_spCamera->getDirectionVector());
-    m_cpCommList->SetGraphicsRoot32BitConstants( 0, 3, &viewDir, 36 );
-
     // draw cube
     mTranslation = XMMatrixTranslation(0.f, 0.f, 0.f);
     mWVP = mTranslation * mVP;
@@ -267,8 +262,8 @@ bool TemplateProject::createRootSignatureAndPSO()
     if (FAILED(m_cpD3DDev->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData))))
         featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
 
-    CD3DX12_DESCRIPTOR_RANGE1 ranges[1]; // diffuse + nmap
-    ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+    CD3DX12_DESCRIPTOR_RANGE1 ranges[1]; // diffuse
+    ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
 
     CD3DX12_ROOT_PARAMETER1 rootParameters[2];
     rootParameters[0].InitAsConstants(16, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX); // wvp
