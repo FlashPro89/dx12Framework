@@ -9,14 +9,21 @@
 //
 //*********************************************************
 
-#ifndef RAYTRACING_HLSL
-#define RAYTRACING_HLSL
+#ifndef RAYTRACING_SAMPLE_HLSL
+#define RAYTRACING_SAMPLE_HLSL
 
-#include "RaytracingHlslCompat.h"
+struct RaytracingSampleConstantBuffer
+{
+    float4x4 projectionToWorld;
+    float4 cameraPosition;
+};
 
 RaytracingAccelerationStructure Scene : register(t0, space0);
 RWTexture2D<float4> RenderTarget : register(u0);
-ConstantBuffer<RayGenConstantBuffer> g_rayGenCB : register(b0);
+ConstantBuffer<RaytracingSampleConstantBuffer> g_rayGenCB : register(b0);
+
+Texture2D<float4> tex_diffuse : register(t1);
+SamplerState g_sampler : register(s0);
 
 typedef BuiltInTriangleIntersectionAttributes MyAttributes;
 struct RayPayload
@@ -24,46 +31,45 @@ struct RayPayload
     float4 color;
 };
 
-bool IsInsideViewport(float2 p, Viewport viewport)
+inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 direction)
 {
-    return (p.x >= viewport.left && p.x <= viewport.right)
-        && (p.y >= viewport.top && p.y <= viewport.bottom);
+    float2 xy = index + 0.5f; // center in the middle of the pixel.
+    float2 screenPos = xy / DispatchRaysDimensions().xy * 2.0 - 1.0;
+
+    // Invert Y for DirectX-style coordinates.
+    screenPos.y = -screenPos.y;
+
+    // Unproject the pixel coordinate into a ray.
+    float4 world = mul(g_rayGenCB.projectionToWorld, float4(screenPos, 0, 1));
+
+    world.xyz /= world.w;
+    origin = g_rayGenCB.cameraPosition.xyz;
+    direction = normalize(world.xyz - origin);
 }
 
 [shader("raygeneration")]
 void MyRaygenShader()
 {
-    float2 lerpValues = (float2)DispatchRaysIndex() / (float2)DispatchRaysDimensions();
+    float3 rayDir;
+    float3 origin;
 
-    // Orthographic projection since we're raytracing in screen space.
-    float3 rayDir = float3(0, 0, 1);
-    float3 origin = float3(
-        lerp(g_rayGenCB.viewport.left, g_rayGenCB.viewport.right, lerpValues.x),
-        lerp(g_rayGenCB.viewport.top, g_rayGenCB.viewport.bottom, lerpValues.y),
-        0.0f);
+    // Generate a ray for a camera pixel corresponding to an index from the dispatched 2D grid.
+    GenerateCameraRay(DispatchRaysIndex().xy, origin, rayDir);
 
-    if (IsInsideViewport(origin.xy, g_rayGenCB.stencil))
-    {
-        // Trace the ray.
-        // Set the ray's extents.
-        RayDesc ray;
-        ray.Origin = origin;
-        ray.Direction = rayDir;
-        // Set TMin to a non-zero small value to avoid aliasing issues due to floating - point errors.
-        // TMin should be kept small to prevent missing geometry at close contact areas.
-        ray.TMin = 0.001;
-        ray.TMax = 10000.0;
-        RayPayload payload = { float4(0, 0, 0, 0) };
-        TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
+    // Trace the ray.
+    // Set the ray's extents.
+    RayDesc ray;
+    ray.Origin = origin;
+    ray.Direction = rayDir;
+    // Set TMin to a non-zero small value to avoid aliasing issues due to floating - point errors.
+    // TMin should be kept small to prevent missing geometry at close contact areas.
+    ray.TMin = 0.001;
+    ray.TMax = 10.0;
+    RayPayload payload = { float4(0, 1, 0, 0) };
+    TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
 
-        // Write the raytraced color to the output texture.
-        RenderTarget[DispatchRaysIndex().xy] = payload.color;
-    }
-    else
-    {
-        // Render interpolated DispatchRaysIndex outside the stencil window
-        RenderTarget[DispatchRaysIndex().xy] = float4(lerpValues, 0, 1);
-    }
+    // Write the raytraced color to the output texture.
+    RenderTarget[DispatchRaysIndex().xy] = payload.color;
 }
 
 [shader("closesthit")]
@@ -76,7 +82,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 [shader("miss")]
 void MyMissShader(inout RayPayload payload)
 {
-    payload.color = float4(0, 0, 0, 1);
+    payload.color = float4( 0.0f, 0.4f, 0.2f, 1.0f );
 }
 
 #endif // RAYTRACING_HLSL
