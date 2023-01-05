@@ -861,6 +861,32 @@ void DX12Framework::createSRVTex2D(ID3D12Resource *pResourse, UINT heapOffsetInD
     m_cpD3DDev->CreateShaderResourceView(pResourse, &srvDesc, h);
 }
 
+// Create SRV for a buffer.
+void DX12Framework::createSRVBuffer(ID3D12Resource *pResourse, UINT heapOffsetInDescriptors, UINT numElements, UINT elementSize)
+{
+    assert(pResourse != 0 && "null ID3D12Resource ptr!");
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Buffer.NumElements = numElements;
+    if (elementSize == 0)
+    {
+        srvDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+        srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+        srvDesc.Buffer.StructureByteStride = 0;
+    } else
+    {
+        srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+        srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+        srvDesc.Buffer.StructureByteStride = elementSize;
+    }
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE h = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_cpSRVHeap->GetCPUDescriptorHandleForHeapStart(),
+        heapOffsetInDescriptors, m_srvDescriptorSize);
+    m_cpD3DDev->CreateShaderResourceView(pResourse, &srvDesc, h);
+}
+
 bool DX12Framework::uploadSubresources( ID3D12Resource* pResource, UINT subResNum,
     const D3D12_SUBRESOURCE_DATA* srDataArray )
 {

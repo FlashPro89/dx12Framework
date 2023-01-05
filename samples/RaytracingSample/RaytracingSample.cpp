@@ -76,6 +76,7 @@ bool RaytracingSample::initialize()
             m_cpVB.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         m_cpCommList->CopyBufferRegion(m_cpVB.Get(), 0, m_spRingBuffer->getResource(), offs.vDataOffset, offs.vDataSize);
         m_cpCommList->ResourceBarrier(1, &barrier);
+        createSRVBuffer(m_cpVB.Get(), 1, offs.vertexesNum, VSTRIDE);
     }
     //----------------------------------------------
     desc = CD3DX12_RESOURCE_DESC::Buffer(offs.iDataSize);
@@ -96,6 +97,7 @@ bool RaytracingSample::initialize()
 
         m_cpCommList->CopyBufferRegion(m_cpIB.Get(), 0, m_spRingBuffer->getResource(), offs.iDataOffset, offs.iDataSize);
         m_cpCommList->ResourceBarrier(1, &barrier);
+        createSRVBuffer(m_cpIB.Get(), 2, offs.indexesNum, sizeof(WORD));
     }
     //----------------------------------------------
 
@@ -226,13 +228,15 @@ bool RaytracingSample::populateCommandList()
     m_cpCommList->SetComputeRootSignature(m_cpRootSignature[2].Get());
    
     // Bind the heaps, acceleration structure and dispatch rays.   
-    auto h0 = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_cpSRVHeap->GetGPUDescriptorHandleForHeapStart(), 1, m_srvDescriptorSize);
+    auto h0 = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_cpSRVHeap->GetGPUDescriptorHandleForHeapStart(), 3, m_srvDescriptorSize);
     D3D12_DISPATCH_RAYS_DESC dispatchDesc = {};
+
+    auto h_vb = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_cpSRVHeap->GetGPUDescriptorHandleForHeapStart(), 4, m_srvDescriptorSize);
 
     m_cpCommList->SetComputeRootDescriptorTable(0, h0);
     m_cpCommList->SetComputeRootShaderResourceView(1, m_topLevelAccelerationStructure->GetGPUVirtualAddress());
     m_cpCommList->SetComputeRoot32BitConstants(2, 20, &m_RTC[m_frameIndex % m_framesCount], 0);
-    m_cpCommList->SetComputeRootDescriptorTable(3, h);
+    m_cpCommList->SetComputeRootDescriptorTable(3, h); // stone texture, vb, ib
 
     DispatchRays(m_cpCommList.Get(), m_cpStateObject.Get(), &dispatchDesc);
   
@@ -447,7 +451,7 @@ void RaytracingSample::initRaytracingResources()
     m_raytracingOutput->SetName(L"m_raytracingOutput");
 
     D3D12_CPU_DESCRIPTOR_HANDLE uavDescriptorHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(
-        m_cpSRVHeap->GetCPUDescriptorHandleForHeapStart(), 1, m_srvDescriptorSize);
+        m_cpSRVHeap->GetCPUDescriptorHandleForHeapStart(), 3, m_srvDescriptorSize);
     D3D12_UNORDERED_ACCESS_VIEW_DESC UAVDesc = {};
     UAVDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
     m_cpD3DDev->CreateUnorderedAccessView(m_raytracingOutput.Get(), nullptr, &UAVDesc, uavDescriptorHandle);
@@ -738,13 +742,14 @@ void RaytracingSample::createRTRootSignatures()
         CD3DX12_DESCRIPTOR_RANGE1 UAVDescriptor;
         UAVDescriptor.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
 
-        CD3DX12_DESCRIPTOR_RANGE1 ranges[1]; // diffuse
-        ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+        CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
+        ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 1); // srv's: texture, vb & ib
+
         CD3DX12_ROOT_PARAMETER1 rootParameters[4];
         rootParameters[0].InitAsDescriptorTable(1, &UAVDescriptor);
         rootParameters[1].InitAsShaderResourceView(0);
         rootParameters[2].InitAsConstants(20, 0, 0, D3D12_SHADER_VISIBILITY_ALL);
-        rootParameters[3].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_ALL); // srv descriptor
+        rootParameters[3].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_ALL); // srv : stone texture
 
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC globalRootSignatureDesc;
         globalRootSignatureDesc.Init_1_1(ARRAYSIZE(rootParameters), rootParameters);
