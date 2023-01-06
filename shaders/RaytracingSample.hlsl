@@ -1,14 +1,3 @@
-//*********************************************************
-//
-// Copyright (c) Microsoft. All rights reserved.
-// This code is licensed under the MIT License (MIT).
-// THIS CODE IS PROVIDED *AS IS* WITHOUT WARRANTY OF
-// ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING ANY
-// IMPLIED WARRANTIES OF FITNESS FOR A PARTICULAR
-// PURPOSE, MERCHANTABILITY, OR NON-INFRINGEMENT.
-//
-//*********************************************************
-
 #ifndef RAYTRACING_SAMPLE_HLSL
 #define RAYTRACING_SAMPLE_HLSL
 
@@ -32,6 +21,8 @@ struct VertexAttributes
 Texture2D<float4> tex_diffuse : register(t1);
 ByteAddressBuffer Vertices : register(t2);
 ByteAddressBuffer Indices : register(t3);
+
+SamplerState ss : register(s0);
 
 typedef BuiltInTriangleIntersectionAttributes MyAttributes;
 struct RayPayload
@@ -72,16 +63,13 @@ void MyRaygenShader()
     // Set TMin to a non-zero small value to avoid aliasing issues due to floating - point errors.
     // TMin should be kept small to prevent missing geometry at close contact areas.
     ray.TMin = 0.001;
-    ray.TMax = 10.0;
+    ray.TMax = 100.0;
     RayPayload payload = { float4(0, 1, 0, 0) };
     TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
 
     // Write the raytraced color to the output texture.
     RenderTarget[DispatchRaysIndex().xy] = payload.color;
 }
-
-
-
 
 // ************************************************
 uint3 GetIndices(uint offsetBytes)
@@ -154,8 +142,7 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attrib)
     float3 barycentrics = float3((1.0f - attrib.barycentrics.x - attrib.barycentrics.y), attrib.barycentrics.x, attrib.barycentrics.y);
     VertexAttributes vertex = GetVertexAttributes(triangleIndex, barycentrics);
 
-    int2 coord = floor(vertex.uv * 512.f);
-    payload.color = float4(tex_diffuse.Load(int3(coord, 0)).rgb, 1.f);
+    payload.color = float4(tex_diffuse.SampleLevel(ss, vertex.uv, 0).rgb, 1.f);
 }
 
 [shader("miss")]

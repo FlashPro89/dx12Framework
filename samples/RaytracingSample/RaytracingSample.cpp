@@ -751,8 +751,23 @@ void RaytracingSample::createRTRootSignatures()
         rootParameters[2].InitAsConstants(20, 0, 0, D3D12_SHADER_VISIBILITY_ALL);
         rootParameters[3].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_ALL); // srv : stone texture
 
+        D3D12_STATIC_SAMPLER_DESC sampler[1] = {};
+        sampler[0].Filter = D3D12_FILTER_ANISOTROPIC;//D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+        sampler[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+        sampler[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+        sampler[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+        sampler[0].MipLODBias = 0;
+        sampler[0].MaxAnisotropy = 16;
+        sampler[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+        sampler[0].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+        sampler[0].MinLOD = 0.0f;
+        sampler[0].MaxLOD = D3D12_FLOAT32_MAX;
+        sampler[0].ShaderRegister = 0;
+        sampler[0].RegisterSpace = 0;
+        sampler[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC globalRootSignatureDesc;
-        globalRootSignatureDesc.Init_1_1(ARRAYSIZE(rootParameters), rootParameters);
+        globalRootSignatureDesc.Init_1_1(ARRAYSIZE(rootParameters), rootParameters, 1, sampler);
 
         if (FAILED(D3D12SerializeVersionedRootSignature(&globalRootSignatureDesc, &blob, &error)))
         {
