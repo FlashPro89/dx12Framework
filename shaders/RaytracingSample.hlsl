@@ -5,6 +5,7 @@ struct RaytracingSampleConstantBuffer
 {
     float4x4 projectionToWorld;
     float4 cameraPosition;
+    float4 viewDirection;
 };
 
 RaytracingAccelerationStructure Scene : register(t0, space0);
@@ -19,7 +20,7 @@ struct VertexAttributes
     float2 uv;
 };
 Texture2D<float4> tex_diffuse : register(t1);
-ByteAddressBuffer Vertices : register(t2);
+StructuredBuffer<VertexAttributes> Vertices : register(t2);
 ByteAddressBuffer Indices : register(t3);
 
 SamplerState ss : register(s0);
@@ -29,6 +30,31 @@ struct RayPayload
 {
     float4 color;
 };
+
+inline float4 HSVtoRGB(float H, float S, float V) 
+{
+    float s = S / 100;
+    float v = V / 100;
+    float C = s * v;
+    float X = C * (1 - abs(fmod(H / 60.0, 2) - 1));
+    float m = v - C;
+    float r, g, b;
+    if (H >= 0 && H < 60) {
+        r = C, g = X, b = 0;
+    } else if (H >= 60 && H < 120) {
+        r = X, g = C, b = 0;
+    } else if (H >= 120 && H < 180) {
+        r = 0, g = C, b = X;
+    } else if (H >= 180 && H < 240) {
+        r = 0, g = X, b = C;
+    } else if (H >= 240 && H < 300) {
+        r = X, g = 0, b = C;
+    } else {
+        r = C, g = 0, b = X;
+    }
+    
+    return float4((r + m), (g + m), (b + m), 1.f);
+}
 
 inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 direction)
 {
@@ -118,18 +144,15 @@ VertexAttributes GetVertexAttributes(uint triangleIndex, float3 barycentrics)
 
     for (uint i = 0; i < 3; i++)
     {
-        int address = primitive_indices[i] * 11 * 4;
-        v.position += asfloat(Vertices.Load3(address)) * barycentrics[i];
-        address += (3 * 4);
-        
-        v.normal += asfloat(Vertices.Load3(address)) * barycentrics[i];
-        address += (3 * 4);
-
-        v.tangent += asfloat(Vertices.Load3(address)) * barycentrics[i];
-        address += (3 * 4);
-        
-        v.uv += asfloat(Vertices.Load2(address)) * barycentrics[i];
+        uint index = primitive_indices[i];
+        v.position += Vertices[index].position * barycentrics[i];
+        v.normal += Vertices[index].normal * barycentrics[i];
+        v.tangent += Vertices[index].tangent * barycentrics[i];
+        v.uv += Vertices[index].uv * barycentrics[i];
     }
+
+    v.normal = normalize(v.normal);
+    v.tangent = normalize(v.tangent);
 
     return v;
 }
@@ -142,7 +165,15 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attrib)
     float3 barycentrics = float3((1.0f - attrib.barycentrics.x - attrib.barycentrics.y), attrib.barycentrics.x, attrib.barycentrics.y);
     VertexAttributes vertex = GetVertexAttributes(triangleIndex, barycentrics);
 
-    payload.color = float4(tex_diffuse.SampleLevel(ss, vertex.uv, 0).rgb, 1.f);
+    float lambda = log2(length(vertex.position - g_rayGenCB.cameraPosition.xyz));
+
+    // visualize lod level
+    payload.color = float4(HSVtoRGB(clamp((360.f * lambda / 9.f), 0 , 300), 100, 100));
+
+    // visualize dst
+    //payload.color = HSVtoRGB(clamp(length(vertex.position - g_rayGenCB.cameraPosition.xyz) * 36, 0, 300), 100, 100);
+
+    payload.color = float4(tex_diffuse.SampleLevel(ss, vertex.uv, lambda).rgb, 1.f);
 }
 
 [shader("miss")]

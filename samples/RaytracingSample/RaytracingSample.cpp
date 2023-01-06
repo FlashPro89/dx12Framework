@@ -235,11 +235,14 @@ bool RaytracingSample::populateCommandList()
 
     m_cpCommList->SetComputeRootDescriptorTable(0, h0);
     m_cpCommList->SetComputeRootShaderResourceView(1, m_topLevelAccelerationStructure->GetGPUVirtualAddress());
-    m_cpCommList->SetComputeRoot32BitConstants(2, 20, &m_RTC[m_frameIndex % m_framesCount], 0);
+    m_cpCommList->SetComputeRoot32BitConstants(2, 24, &m_RTC[m_frameIndex], 0);
     m_cpCommList->SetComputeRootDescriptorTable(3, h); // stone texture, vb, ib
 
     DispatchRays(m_cpCommList.Get(), m_cpStateObject.Get(), &dispatchDesc);
   
+    if (m_spInput->isKeyPressed(DIK_SPACE))
+        return true;
+
     // TMP: RT output
     D3D12_RESOURCE_BARRIER preCopyBarriers[2];
     preCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_cpRenderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
@@ -587,7 +590,7 @@ void RaytracingSample::initRaytracingResources()
     // Create an instance desc for the bottom-level acceleration structure.
     D3D12_RAYTRACING_INSTANCE_DESC instanceDesc = {};
     instanceDesc.Transform[0][0] = instanceDesc.Transform[1][1] = instanceDesc.Transform[2][2] = 1;
-    instanceDesc.Transform[2][3] = 0.5f;
+    //instanceDesc.Transform[2][3] = 0.5f;
     instanceDesc.InstanceMask = 1;
     instanceDesc.AccelerationStructure = m_bottomLevelAccelerationStructure->GetGPUVirtualAddress();
     
@@ -748,7 +751,7 @@ void RaytracingSample::createRTRootSignatures()
         CD3DX12_ROOT_PARAMETER1 rootParameters[4];
         rootParameters[0].InitAsDescriptorTable(1, &UAVDescriptor);
         rootParameters[1].InitAsShaderResourceView(0);
-        rootParameters[2].InitAsConstants(20, 0, 0, D3D12_SHADER_VISIBILITY_ALL);
+        rootParameters[2].InitAsConstants(24, 0, 0, D3D12_SHADER_VISIBILITY_ALL);
         rootParameters[3].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_ALL); // srv : stone texture
 
         D3D12_STATIC_SAMPLER_DESC sampler[1] = {};
@@ -861,4 +864,5 @@ void RaytracingSample::UpdateCameraMatrices()
     XMMATRIX viewProj = m_spCamera->getViewProjMatrix();
     m_RTC[frameIndex].projectionToWorld = XMMatrixInverse(nullptr, m_spCamera->getViewProjMatrix());
     m_RTC[frameIndex].cameraPosition = m_spCamera->getPosition();
+    m_RTC[frameIndex].viewDirection = m_spCamera->getDirectionVector();
 }

@@ -45,6 +45,7 @@ protected:
 	{
 		XMMATRIX projectionToWorld;
 		XMVECTOR cameraPosition;
+		XMVECTOR viewDirection;
 	}m_RTC[4];
 
 	D3D12_VERTEX_BUFFER_VIEW m_vb;
