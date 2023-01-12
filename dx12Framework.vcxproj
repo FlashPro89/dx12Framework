@@ -24,6 +24,13 @@
     <ClCompile Include="source\DDSTextureLoader12.cpp" />
     <ClCompile Include="source\DX12Framework.cpp" />
     <ClCompile Include="source\gmath.cpp" />
+    <ClCompile Include="source\imgui\imgui.cpp" />
+    <ClCompile Include="source\imgui\imgui_demo.cpp" />
+    <ClCompile Include="source\imgui\imgui_draw.cpp" />
+    <ClCompile Include="source\imgui\imgui_impl_dx12.cpp" />
+    <ClCompile Include="source\imgui\imgui_impl_win32.cpp" />
+    <ClCompile Include="source\imgui\imgui_tables.cpp" />
+    <ClCompile Include="source\imgui\imgui_widgets.cpp" />
     <ClCompile Include="source\Input.cpp" />
     <ClCompile Include="source\RingUploadBuffer.cpp" />
     <ClCompile Include="source\Timer.cpp" />
@@ -36,6 +43,14 @@
     <ClInclude Include="include\DX12Framework.h" />
     <ClInclude Include="include\DX12MeshGenerator.h" />
     <ClInclude Include="include\gmath.h" />
+    <ClInclude Include="include\imgui\imconfig.h" />
+    <ClInclude Include="include\imgui\imgui.h" />
+    <ClInclude Include="include\imgui\imgui_impl_dx12.h" />
+    <ClInclude Include="include\imgui\imgui_impl_win32.h" />
+    <ClInclude Include="include\imgui\imgui_internal.h" />
+    <ClInclude Include="include\imgui\imstb_rectpack.h" />
+    <ClInclude Include="include\imgui\imstb_textedit.h" />
+    <ClInclude Include="include\imgui\imstb_truetype.h" />
     <ClInclude Include="include\Input.h" />
     <ClInclude Include="include\RingUploadBuffer.h" />
     <ClInclude Include="include\Timer.h" />
@@ -106,13 +121,13 @@
     <OutDir>$(SolutionDir)lib\</OutDir>
     <IntDir>obj\framework\$(Platform)\$(Configuration)\</IntDir>
     <TargetName>$(ProjectName)_d</TargetName>
-    <IncludePath>include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>include;include/imgui;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)lib\</OutDir>
     <IntDir>obj\framework\$(Platform)\$(Configuration)\</IntDir>
-    <IncludePath>include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>include;include/imgui;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
