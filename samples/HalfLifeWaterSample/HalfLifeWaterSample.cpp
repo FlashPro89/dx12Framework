@@ -185,7 +185,7 @@ bool HalfLifeWaterSample::populateCommandList()
     time_.x += m_spTimer->getDelta();
 
     m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &fmWVP, 0);
-    m_cpCommList->SetGraphicsRoot32BitConstants(1, 1, &XMFLOAT4(time_), 0);
+    m_cpCommList->SetGraphicsRoot32BitConstants(1, 1, &time_, 0);
     m_cpCommList->SetGraphicsRootDescriptorTable(2, h);
     m_cpCommList->DrawIndexedInstanced(36, 1, 0, 0, 0);  // draw cube
 
