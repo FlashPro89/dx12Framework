@@ -608,12 +608,12 @@ void RaytracingSample::initRaytracingResources()
 
             XMFLOAT3 cube_pos;
             const float angle = PI2 * i / float(CUBES_NUM) + start_angle;
-            cube_pos.x = CUBES_RADIUS * cos(angle);
+            cube_pos.x = CUBES_RADIUS * cosf(angle);
             cube_pos.y = c * CUBES_ROW_HEIGHT;
-            cube_pos.z = CUBES_RADIUS * sin(angle);
+            cube_pos.z = CUBES_RADIUS * sinf(angle);
 
             XMFLOAT2 dir = { center_pos.x - cube_pos.x, center_pos.z - cube_pos.z };
-            float l = sqrt(dir.x * dir.x + dir.y * dir.y);
+            float l = sqrtf(dir.x * dir.x + dir.y * dir.y);
             dir.x /= l;
             dir.y /= l;
 
