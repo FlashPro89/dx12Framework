@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string>
 #include <codecvt>
+#include "../../include/imgui/imgui.h"
 
 // ------------------------------------
 //
@@ -25,6 +26,8 @@ bool HalfLifeWaterSample::initialize()
 		return false;
 	if (!initInput())
 		return false;
+    if (!initImGui())
+        return false;
 
     D3D12_FEATURE_DATA_D3D12_OPTIONS options = {};
     m_cpD3DDev->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &options, sizeof(options));
@@ -172,7 +175,6 @@ bool HalfLifeWaterSample::populateCommandList()
     m_cpCommList->IASetVertexBuffers(0, 1, &m_vb);
     m_cpCommList->IASetIndexBuffer(&m_ib);
 
-    // ----------------------------------------------------
     XMFLOAT4X4 fmWVP;
     XMMATRIX mWVP, mVP, mTranslation;
     mVP = m_spCamera->getViewProjMatrix();
@@ -181,13 +183,28 @@ bool HalfLifeWaterSample::populateCommandList()
     mWVP = mTranslation * mVP;
     XMStoreFloat4x4(&fmWVP, XMMatrixTranspose(mWVP));
 
-    static XMFLOAT4 time_;
-    time_.x += m_spTimer->getDelta();
+    water_coefs.time += m_spTimer->getDelta();
 
     m_cpCommList->SetGraphicsRoot32BitConstants(0, 16, &fmWVP, 0);
-    m_cpCommList->SetGraphicsRoot32BitConstants(1, 1, &time_, 0);
+    m_cpCommList->SetGraphicsRoot32BitConstants(1, 5, &water_coefs, 0);
     m_cpCommList->SetGraphicsRootDescriptorTable(2, h);
     m_cpCommList->DrawIndexedInstanced(36, 1, 0, 0, 0);  // draw cube
+
+    // ----------------------------------------------------
+    beginImGui();
+
+    bool show_wnd = true;
+    ImGui::Begin("Water params", &show_wnd);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+    
+    ImGui::SliderFloat("Amplitude", &water_coefs.amplitude, 0.01f, 1.f);
+    ImGui::SliderFloat("Frequency", &water_coefs.frequency, 0.5f, 5.f);
+    ImGui::SliderFloat("Speed", &water_coefs.speed, 1.f, 500.f);
+    ImGui::SliderFloat("Phase", &water_coefs.phase, 0.f, 1.f);
+
+    ImGui::End();
+    
+    endImGui();
+    // ----------------------------------------------------
 
     // Indicate that the back buffer will now be used to present.
     barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_cpRenderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
@@ -212,7 +229,6 @@ void HalfLifeWaterSample::executeCommandList()
 
 bool HalfLifeWaterSample::executeCommandListAndPresent()
 {
-    
     executeCommandList();
 
     if (FAILED(m_cpSwapChain->Present(1, 0)))
@@ -223,7 +239,7 @@ bool HalfLifeWaterSample::executeCommandListAndPresent()
 
 bool HalfLifeWaterSample::update()
 {
-    if (m_spInput)
+    if (!ImGui::GetIO().WantCaptureMouse && m_spInput)
         m_spInput->update();
 
     if (m_spCamera)
@@ -266,7 +282,7 @@ bool HalfLifeWaterSample::createRootSignatureAndPSO()
 
     CD3DX12_ROOT_PARAMETER1 rootParameters[3];
     rootParameters[0].InitAsConstants(16, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX); // wvp
-    rootParameters[1].InitAsConstants(1, 0, 0, D3D12_SHADER_VISIBILITY_PIXEL); // time
+    rootParameters[1].InitAsConstants(5, 0, 0, D3D12_SHADER_VISIBILITY_PIXEL); // time
     rootParameters[2].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_PIXEL); // srv descriptor
 
     D3D12_STATIC_SAMPLER_DESC sampler[1] = {};

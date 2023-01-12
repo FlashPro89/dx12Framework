@@ -31,7 +31,15 @@ protected:
 	ComPtr<ID3D12Resource> m_cpVB;
 	ComPtr<ID3D12Resource> m_cpIB;
 	ComPtr<ID3D12Resource> m_cpTexture;
-	ComPtr<ID3D12Resource> m_cpNormalMap;
+
+	struct WaterCoefs
+	{
+		float time = {};
+		float amplitude = 0.1f;
+		float frequency = 2.5f;
+		float speed = 150.f;
+		float phase = 0.f;
+	}water_coefs;
 };
 
 #endif

@@ -27,12 +27,14 @@ VS_OUTPUT vs_main(VS_INPUT input)
     return output;                          
 };
 
-
 struct sConstantBufferPS
 {
-    float4 time;
+    float time;
+    float amplitude; // 0.1f
+    float frequency; // 2.5f;
+    float speed; // 150.f;
+    float phase; // 0.f;
 };
-
 ConstantBuffer<sConstantBufferPS> myCBufferPS : register(b0);
 
 struct PSInput                         
@@ -46,13 +48,9 @@ SamplerState g_sampler : register(s0);
 
 float4 ps_main(PSInput input) : SV_TARGET
 {
-    float amplitude = 0.1f;
-    float frequency = 2.5f;
-    float speed = 150.f;
-
     float2 uv;
-    uv.x = input.uv.x + amplitude * sin(input.uv.y * frequency + myCBufferPS.time.x * speed);
-    uv.y = input.uv.y + amplitude * sin(input.uv.x * frequency + myCBufferPS.time.x * speed + 3.1415 / 2);
+    uv.x = input.uv.x + myCBufferPS.amplitude * sin(input.uv.y * myCBufferPS.frequency + myCBufferPS.time * myCBufferPS.speed);
+    uv.y = input.uv.y + myCBufferPS.amplitude * sin(input.uv.x * myCBufferPS.frequency + myCBufferPS.time * myCBufferPS.speed + myCBufferPS.phase * 3.1415f);
 
 	return g_texture.Sample(g_sampler, uv); 
 
