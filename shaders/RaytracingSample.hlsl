@@ -165,13 +165,14 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attrib)
     float3 barycentrics = float3((1.0f - attrib.barycentrics.x - attrib.barycentrics.y), attrib.barycentrics.x, attrib.barycentrics.y);
     VertexAttributes vertex = GetVertexAttributes(triangleIndex, barycentrics);
 
-    float lambda = log2(length(vertex.position - g_rayGenCB.cameraPosition.xyz));
+    float3 world_position = mul(float4(vertex.position, 1), ObjectToWorld4x3());
+    float lambda = log2(length(world_position - g_rayGenCB.cameraPosition.xyz));
 
     // visualize lod level
     payload.color = float4(HSVtoRGB(clamp((360.f * lambda / 9.f), 0 , 300), 100, 100));
 
     // visualize dst
-    //payload.color = HSVtoRGB(clamp(length(vertex.position - g_rayGenCB.cameraPosition.xyz) * 36, 0, 300), 100, 100);
+    //payload.color = HSVtoRGB(clamp(length(world_position - g_rayGenCB.cameraPosition.xyz) * 5, 0, 300), 100, 100);
 
     payload.color = float4(tex_diffuse.SampleLevel(ss, vertex.uv, lambda).rgb, 1.f);
 }

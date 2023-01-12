@@ -7,6 +7,14 @@ const wchar_t *c_closestHitShaderName = L"MyClosestHitShader";
 const wchar_t *c_missShaderName = L"MyMissShader";
 
 constexpr int VSTRIDE = 44;
+constexpr int CUBES_NUM = 60;
+constexpr int CUBES_ROWS = 200;
+constexpr float CUBES_ROW_HEIGHT = 1.f;
+constexpr float CUBES_RADIUS = 10.f;
+
+constexpr float PI = 3.141592f;
+constexpr float PI2 = PI * 2.f;
+constexpr float DEG2RAD = 3.141592f / 180.f;
 
 // ------------------------------------
 //
@@ -537,7 +545,7 @@ void RaytracingSample::initRaytracingResources()
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS topLevelInputs = {};
     topLevelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
     topLevelInputs.Flags = buildFlags;
-    topLevelInputs.NumDescs = 1;
+    topLevelInputs.NumDescs = CUBES_NUM * CUBES_ROWS;
     topLevelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
 
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO topLevelPrebuildInfo = {};
@@ -548,6 +556,7 @@ void RaytracingSample::initRaytracingResources()
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS bottomLevelInputs = topLevelInputs;
     bottomLevelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
     bottomLevelInputs.pGeometryDescs = &geometryDesc;
+    bottomLevelInputs.NumDescs = 1;
     m_cpD3DDev->GetRaytracingAccelerationStructurePrebuildInfo(&bottomLevelInputs, &bottomLevelPrebuildInfo);
     ASSERT(bottomLevelPrebuildInfo.ResultDataMaxSizeInBytes, "Invalid BLAS prebuild info max size");
 
@@ -588,11 +597,41 @@ void RaytracingSample::initRaytracingResources()
     }
 
     // Create an instance desc for the bottom-level acceleration structure.
-    D3D12_RAYTRACING_INSTANCE_DESC instanceDesc = {};
-    instanceDesc.Transform[0][0] = instanceDesc.Transform[1][1] = instanceDesc.Transform[2][2] = 1;
-    //instanceDesc.Transform[2][3] = 0.5f;
-    instanceDesc.InstanceMask = 1;
-    instanceDesc.AccelerationStructure = m_bottomLevelAccelerationStructure->GetGPUVirtualAddress();
+    D3D12_RAYTRACING_INSTANCE_DESC instanceDescs[CUBES_NUM * CUBES_ROWS] = {};
+    const XMFLOAT3 center_pos = { 0, 0, 0 };
+    for (int c = 0; c < CUBES_ROWS; c++)
+    {
+        for (int b = 0; b < CUBES_NUM; b++)
+        {
+            int i = b + c * CUBES_NUM;
+            float start_angle = c * 0.05f;
+
+            XMFLOAT3 cube_pos;
+            const float angle = PI2 * i / float(CUBES_NUM) + start_angle;
+            cube_pos.x = CUBES_RADIUS * cos(angle);
+            cube_pos.y = c * CUBES_ROW_HEIGHT;
+            cube_pos.z = CUBES_RADIUS * sin(angle);
+
+            XMFLOAT2 dir = { center_pos.x - cube_pos.x, center_pos.z - cube_pos.z };
+            float l = sqrt(dir.x * dir.x + dir.y * dir.y);
+            dir.x /= l;
+            dir.y /= l;
+
+            instanceDescs[i].Transform[0][0] = dir.x;
+            instanceDescs[i].Transform[0][2] = -dir.y;
+
+            instanceDescs[i].Transform[1][1] = 1.f;
+
+            instanceDescs[i].Transform[2][0] = dir.y;
+            instanceDescs[i].Transform[2][2] = dir.x;
+
+            instanceDescs[i].Transform[0][3] = cube_pos.x;
+            instanceDescs[i].Transform[1][3] = cube_pos.y;
+            instanceDescs[i].Transform[2][3] = cube_pos.z;
+            instanceDescs[i].InstanceMask = 1;
+            instanceDescs[i].AccelerationStructure = m_bottomLevelAccelerationStructure->GetGPUVirtualAddress();
+        }
+    }
     
     auto AllocateUploadBuffer = [](ID3D12Device *pDevice, void *pData, UINT64 datasize, ID3D12Resource **ppResource, const wchar_t *resourceName = nullptr)
     {
@@ -614,7 +653,7 @@ void RaytracingSample::initRaytracingResources()
         memcpy(pMappedData, pData, datasize);
         (*ppResource)->Unmap(0, nullptr);
     };
-    AllocateUploadBuffer(m_cpD3DDev.Get(), &instanceDesc, sizeof(instanceDesc), &instanceDescs, L"InstanceDescs");
+    AllocateUploadBuffer(m_cpD3DDev.Get(), &instanceDescs[0], sizeof(instanceDescs), &instanceDescsBuff, L"InstanceDescs");
 
     // Bottom Level Acceleration Structure desc
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC bottomLevelBuildDesc = {};
@@ -627,7 +666,7 @@ void RaytracingSample::initRaytracingResources()
     // Top Level Acceleration Structure desc
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC topLevelBuildDesc = {};
     {
-        topLevelInputs.InstanceDescs = instanceDescs->GetGPUVirtualAddress();
+        topLevelInputs.InstanceDescs = instanceDescsBuff->GetGPUVirtualAddress();
         topLevelBuildDesc.Inputs = topLevelInputs;
         topLevelBuildDesc.DestAccelerationStructureData = m_topLevelAccelerationStructure->GetGPUVirtualAddress();
         topLevelBuildDesc.ScratchAccelerationStructureData = scratchResource->GetGPUVirtualAddress();

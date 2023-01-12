@@ -34,7 +34,7 @@ protected:
 	ComPtr<ID3D12Resource> m_raytracingOutput;
 	ComPtr<ID3D12Resource> m_bottomLevelAccelerationStructure;
 	ComPtr<ID3D12Resource> m_topLevelAccelerationStructure;
-	ComPtr<ID3D12Resource> instanceDescs;
+	ComPtr<ID3D12Resource> instanceDescsBuff;
 	ComPtr<ID3D12Resource> scratchResource;
 
 	ComPtr<ID3D12Resource> m_missShaderTable;
