@@ -7,6 +7,12 @@
     <Filter Include="include">
       <UniqueIdentifier>{95a8d720-588f-4f51-8cdd-7c14d6533d7a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="source\imgui">
+      <UniqueIdentifier>{99085b10-0405-4539-8913-58337bdb183b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\imgui">
+      <UniqueIdentifier>{61c9b258-20bf-4b00-a4b0-9ff2fd7e87eb}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\Camera.cpp">
@@ -32,6 +38,27 @@
     </ClCompile>
     <ClCompile Include="source\RingUploadBuffer.cpp">
       <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\imgui\imgui.cpp">
+      <Filter>source\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="source\imgui\imgui_demo.cpp">
+      <Filter>source\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="source\imgui\imgui_draw.cpp">
+      <Filter>source\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="source\imgui\imgui_impl_dx12.cpp">
+      <Filter>source\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="source\imgui\imgui_impl_win32.cpp">
+      <Filter>source\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="source\imgui\imgui_tables.cpp">
+      <Filter>source\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="source\imgui\imgui_widgets.cpp">
+      <Filter>source\imgui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -64,6 +91,30 @@
     </ClInclude>
     <ClInclude Include="include\RingUploadBuffer.h">
       <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imgui\imconfig.h">
+      <Filter>include\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imgui\imgui.h">
+      <Filter>include\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imgui\imgui_impl_dx12.h">
+      <Filter>include\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imgui\imgui_impl_win32.h">
+      <Filter>include\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imgui\imgui_internal.h">
+      <Filter>include\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imgui\imstb_rectpack.h">
+      <Filter>include\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imgui\imstb_textedit.h">
+      <Filter>include\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imgui\imstb_truetype.h">
+      <Filter>include\imgui</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

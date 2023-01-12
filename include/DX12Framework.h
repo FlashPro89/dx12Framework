@@ -72,7 +72,8 @@ public:
 
 protected:
 	// ***  make friendly to class DX12Window;
-	bool initDefault(); 	
+	bool initDefault();
+	bool initImGui();
 public:
 	// ***  make friendly to class DX12Window;
 	virtual bool initialize() = 0;
