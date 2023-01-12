@@ -920,6 +920,21 @@ void DX12Framework::createSRVBuffer(ID3D12Resource *pResourse, UINT heapOffsetIn
     m_cpD3DDev->CreateShaderResourceView(pResourse, &srvDesc, h);
 }
 
+void DX12Framework::beginImGui()
+{    
+    // Start the Dear ImGui frame
+    ImGui_ImplDX12_NewFrame();
+    ImGui_ImplWin32_NewFrame();
+    ImGui::NewFrame();
+}
+
+void DX12Framework::endImGui()
+{
+    // Rendering
+    ImGui::Render();
+    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_cpCommList.Get());
+}
+
 bool DX12Framework::uploadSubresources( ID3D12Resource* pResource, UINT subResNum,
     const D3D12_SUBRESOURCE_DATA* srDataArray )
 {

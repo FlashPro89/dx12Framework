@@ -1,8 +1,6 @@
 #include "ImGuiSample.h"
 #include <string>
 #include "imgui/imgui.h"
-#include "imgui/imgui_impl_dx12.h"
-#include "imgui/imgui_impl_win32.h"
 // ------------------------------------
 //
 //		*** class ImGuiSample ***
@@ -23,8 +21,6 @@ bool ImGuiSample::initialize()
 {
 	if (!initDefault())
 		return false;
-	//if (!initInput())
-	//	return false;
     if (!initImGui())
         return false;
 
@@ -78,11 +74,7 @@ bool ImGuiSample::populateCommandList()
     m_cpCommList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
     m_cpCommList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
 
-
-    // Start the Dear ImGui frame
-    ImGui_ImplDX12_NewFrame();
-    ImGui_ImplWin32_NewFrame();
-    ImGui::NewFrame();
+    beginImGui();
 
     static bool show_demo_window = true;
     static bool show_another_window = true;
@@ -124,9 +116,7 @@ bool ImGuiSample::populateCommandList()
         ImGui::End();
     }
 
-    // Rendering
-    ImGui::Render();
-    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_cpCommList.Get());
+    endImGui();
 
     // Indicate that the back buffer will now be used to present.
     barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_cpRenderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
