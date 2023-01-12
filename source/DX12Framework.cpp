@@ -1,11 +1,16 @@
 #include "DX12Framework.h"
 #include <codecvt>
 #include <thread>
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_dx12.h"
+#include "imgui/imgui_impl_win32.h"
 
 #pragma comment( lib , "d3d12.lib" )
 #pragma comment( lib , "d3dcompiler.lib" )
 #pragma comment( lib , "dxguid.lib" )
 #pragma comment( lib , "dxgi.lib" )
+
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 namespace
 {
@@ -27,6 +32,8 @@ namespace
 
     LRESULT WINAPI _wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
+        if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+            return true;
         switch (msg)
         {
         case WM_DESTROY:
@@ -110,7 +117,7 @@ bool DX12Framework::DX12Window::createWindow(const DX12WINDOWPARAMS& parameters)
     adjustRect(rect);
 
     m_parameters.handle = CreateWindowEx(0, "DX12_FRAMEWORK_WND_CLS", m_parameters.name.c_str(), WINDOW_STYLE,
-        0, 0, rect.right, rect.bottom, 0, 0, 0, 0);
+        0, 0, rect.right - rect.left, rect.bottom - rect.top, 0, 0, 0, 0);
 
     ASSERT(m_parameters.handle, "Can't create window!" );
 
@@ -225,7 +232,7 @@ bool DX12Framework::initDefault()
     if (!m_spWindow)
     {
         m_spWindow = std::make_shared<DX12Window>();
-        ASSERT(m_spWindow->createWindow(DX12WINDOWPARAMS(m_name, 800, 600)),
+        ASSERT(m_spWindow->createWindow(DX12WINDOWPARAMS(m_name, 1024, 768)),
             L"Failed create window!");
     }
 
@@ -310,6 +317,32 @@ bool DX12Framework::initDefault()
     std::string sTitle = m_name.c_str() + std::string(" ( DX12 on ") +
         sAdapter + std::string(" )");
     m_spWindow->setTitle(sTitle);
+
+    return true;
+}
+
+bool DX12Framework::initImGui()
+{
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO(); (void)io;
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    //ImGui::StyleColorsLight();
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE h_cpu(m_cpSRVHeap->GetCPUDescriptorHandleForHeapStart(),
+        100, m_srvDescriptorSize);
+    CD3DX12_GPU_DESCRIPTOR_HANDLE h_gpu(m_cpSRVHeap->GetGPUDescriptorHandleForHeapStart(),
+        100, m_srvDescriptorSize);
+
+    // Setup Platform/Renderer backends
+    if (!ImGui_ImplWin32_Init(m_spWindow->getWindowParameters().handle))
+        return false;
+    if (!ImGui_ImplDX12_Init(reinterpret_cast<ID3D12Device *>(m_cpD3DDev.Get()), m_framesCount,
+        DXGI_FORMAT_R8G8B8A8_UNORM, m_cpSRVHeap.Get(), h_cpu, h_gpu))
+        return false;
 
     return true;
 }
@@ -885,6 +918,21 @@ void DX12Framework::createSRVBuffer(ID3D12Resource *pResourse, UINT heapOffsetIn
     CD3DX12_CPU_DESCRIPTOR_HANDLE h = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_cpSRVHeap->GetCPUDescriptorHandleForHeapStart(),
         heapOffsetInDescriptors, m_srvDescriptorSize);
     m_cpD3DDev->CreateShaderResourceView(pResourse, &srvDesc, h);
+}
+
+void DX12Framework::beginImGui()
+{    
+    // Start the Dear ImGui frame
+    ImGui_ImplDX12_NewFrame();
+    ImGui_ImplWin32_NewFrame();
+    ImGui::NewFrame();
+}
+
+void DX12Framework::endImGui()
+{
+    // Rendering
+    ImGui::Render();
+    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_cpCommList.Get());
 }
 
 bool DX12Framework::uploadSubresources( ID3D12Resource* pResource, UINT subResNum,

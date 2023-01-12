@@ -72,7 +72,8 @@ public:
 
 protected:
 	// ***  make friendly to class DX12Window;
-	bool initDefault(); 	
+	bool initDefault();
+	bool initImGui();
 public:
 	// ***  make friendly to class DX12Window;
 	virtual bool initialize() = 0;
@@ -138,6 +139,9 @@ protected:
 
 	void createSRVTex2D(ID3D12Resource *pResourse, UINT heapOffsetInDescriptors);
 	void createSRVBuffer(ID3D12Resource *pResourse, UINT heapOffsetInDescriptors, UINT numElements, UINT elementSize);
+
+	void beginImGui();
+	void endImGui();
 
 	//upload to default mem pool
 	bool uploadSubresources( ID3D12Resource* pResource, UINT subResNum,
