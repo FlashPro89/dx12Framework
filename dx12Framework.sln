@@ -27,12 +27,20 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RaytracingSample", "samples
 		{3A08139F-DECB-4B8C-93C7-F29F66BC8DA5} = {3A08139F-DECB-4B8C-93C7-F29F66BC8DA5}
 	EndProjectSection
 EndProject
+<<<<<<< HEAD
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HalfLifeWaterSample", "samples\HalfLifeWaterSample\HalfLifeWaterSample.vcxproj", "{D4BCE4F5-E6E2-4CE8-B4F1-3CB84BA847C1}"
 	ProjectSection(ProjectDependencies) = postProject
 		{3A08139F-DECB-4B8C-93C7-F29F66BC8DA5} = {3A08139F-DECB-4B8C-93C7-F29F66BC8DA5}
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ImGuiSample", "samples\ImGuiSample\ImGuiSample.vcxproj", "{7B3E12D4-5932-4DE9-A64C-5552E28E131F}"
+=======
+<<<<<<< HEAD
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HalfLifeWaterSample", "samples\HalfLifeWaterSample\HalfLifeWaterSample.vcxproj", "{D4BCE4F5-E6E2-4CE8-B4F1-3CB84BA847C1}"
+=======
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ImGuiSample", "samples\ImGuiSample\ImGuiSample.vcxproj", "{7B3E12D4-5932-4DE9-A64C-5552E28E131F}"
+>>>>>>> ImGUI
+>>>>>>> HalfLife1Water
 	ProjectSection(ProjectDependencies) = postProject
 		{3A08139F-DECB-4B8C-93C7-F29F66BC8DA5} = {3A08139F-DECB-4B8C-93C7-F29F66BC8DA5}
 	EndProjectSection
@@ -85,6 +93,10 @@ Global
 		{77917A00-A971-4814-9F64-764428CC1EC7}.Release|x64.Build.0 = Release|x64
 		{77917A00-A971-4814-9F64-764428CC1EC7}.Release|x86.ActiveCfg = Release|Win32
 		{77917A00-A971-4814-9F64-764428CC1EC7}.Release|x86.Build.0 = Release|Win32
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> HalfLife1Water
 		{D4BCE4F5-E6E2-4CE8-B4F1-3CB84BA847C1}.Debug|x64.ActiveCfg = Debug|x64
 		{D4BCE4F5-E6E2-4CE8-B4F1-3CB84BA847C1}.Debug|x64.Build.0 = Debug|x64
 		{D4BCE4F5-E6E2-4CE8-B4F1-3CB84BA847C1}.Debug|x86.ActiveCfg = Debug|Win32
@@ -93,6 +105,10 @@ Global
 		{D4BCE4F5-E6E2-4CE8-B4F1-3CB84BA847C1}.Release|x64.Build.0 = Release|x64
 		{D4BCE4F5-E6E2-4CE8-B4F1-3CB84BA847C1}.Release|x86.ActiveCfg = Release|Win32
 		{D4BCE4F5-E6E2-4CE8-B4F1-3CB84BA847C1}.Release|x86.Build.0 = Release|Win32
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> HalfLife1Water
 		{7B3E12D4-5932-4DE9-A64C-5552E28E131F}.Debug|x64.ActiveCfg = Debug|x64
 		{7B3E12D4-5932-4DE9-A64C-5552E28E131F}.Debug|x64.Build.0 = Debug|x64
 		{7B3E12D4-5932-4DE9-A64C-5552E28E131F}.Debug|x86.ActiveCfg = Debug|Win32
@@ -101,6 +117,10 @@ Global
 		{7B3E12D4-5932-4DE9-A64C-5552E28E131F}.Release|x64.Build.0 = Release|x64
 		{7B3E12D4-5932-4DE9-A64C-5552E28E131F}.Release|x86.ActiveCfg = Release|Win32
 		{7B3E12D4-5932-4DE9-A64C-5552E28E131F}.Release|x86.Build.0 = Release|Win32
+<<<<<<< HEAD
+=======
+>>>>>>> ImGUI
+>>>>>>> HalfLife1Water
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -110,8 +130,16 @@ Global
 		{1EC645CA-CC75-4252-B254-7DBF8F31D2CE} = {F28250FA-AC3D-4D00-A006-E2132AAE03C8}
 		{D8BED63F-EAD8-4148-8FF2-4C804124E297} = {F28250FA-AC3D-4D00-A006-E2132AAE03C8}
 		{77917A00-A971-4814-9F64-764428CC1EC7} = {F28250FA-AC3D-4D00-A006-E2132AAE03C8}
+<<<<<<< HEAD
 		{D4BCE4F5-E6E2-4CE8-B4F1-3CB84BA847C1} = {F28250FA-AC3D-4D00-A006-E2132AAE03C8}
 		{7B3E12D4-5932-4DE9-A64C-5552E28E131F} = {F28250FA-AC3D-4D00-A006-E2132AAE03C8}
+=======
+<<<<<<< HEAD
+		{D4BCE4F5-E6E2-4CE8-B4F1-3CB84BA847C1} = {F28250FA-AC3D-4D00-A006-E2132AAE03C8}
+=======
+		{7B3E12D4-5932-4DE9-A64C-5552E28E131F} = {F28250FA-AC3D-4D00-A006-E2132AAE03C8}
+>>>>>>> ImGUI
+>>>>>>> HalfLife1Water
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B6082146-BC14-428E-8027-9251EC92D8AF}
