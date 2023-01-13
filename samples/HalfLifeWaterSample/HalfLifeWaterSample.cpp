@@ -194,11 +194,12 @@ bool HalfLifeWaterSample::populateCommandList()
     beginImGui();
 
     bool show_wnd = true;
-    ImGui::Begin("Water params", &show_wnd);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+    int wnd_flags = ImGuiWindowFlags_NoResize;
+    ImGui::Begin("Water params", &show_wnd, wnd_flags);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
     
     ImGui::SliderFloat("Amplitude", &water_coefs.amplitude, 0.01f, 1.f);
     ImGui::SliderFloat("Frequency", &water_coefs.frequency, 0.5f, 5.f);
-    ImGui::SliderFloat("Speed", &water_coefs.speed, 1.f, 500.f);
+    ImGui::SliderFloat("Speed", &water_coefs.speed, 1.f, 1500.f);
     ImGui::SliderFloat("Phase", &water_coefs.phase, 0.f, 1.f);
 
     ImGui::End();

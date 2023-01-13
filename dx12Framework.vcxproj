@@ -31,6 +31,10 @@
     <ClCompile Include="source\imgui\imgui_impl_win32.cpp" />
     <ClCompile Include="source\imgui\imgui_tables.cpp" />
     <ClCompile Include="source\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="source\imgui_node_editor\crude_json.cpp" />
+    <ClCompile Include="source\imgui_node_editor\imgui_canvas.cpp" />
+    <ClCompile Include="source\imgui_node_editor\imgui_node_editor.cpp" />
+    <ClCompile Include="source\imgui_node_editor\imgui_node_editor_api.cpp" />
     <ClCompile Include="source\Input.cpp" />
     <ClCompile Include="source\RingUploadBuffer.cpp" />
     <ClCompile Include="source\Timer.cpp" />
@@ -51,9 +55,20 @@
     <ClInclude Include="include\imgui\imstb_rectpack.h" />
     <ClInclude Include="include\imgui\imstb_textedit.h" />
     <ClInclude Include="include\imgui\imstb_truetype.h" />
+    <ClInclude Include="include\imgui_node_editor\crude_json.h" />
+    <ClInclude Include="include\imgui_node_editor\imgui_bezier_math.h" />
+    <ClInclude Include="include\imgui_node_editor\imgui_canvas.h" />
+    <ClInclude Include="include\imgui_node_editor\imgui_extra_math.h" />
+    <ClInclude Include="include\imgui_node_editor\imgui_node_editor.h" />
+    <ClInclude Include="include\imgui_node_editor\imgui_node_editor_internal.h" />
     <ClInclude Include="include\Input.h" />
     <ClInclude Include="include\RingUploadBuffer.h" />
     <ClInclude Include="include\Timer.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="include\imgui_node_editor\imgui_bezier_math.inl" />
+    <None Include="include\imgui_node_editor\imgui_extra_math.inl" />
+    <None Include="include\imgui_node_editor\imgui_node_editor_internal.inl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
@@ -121,13 +136,14 @@
     <OutDir>$(SolutionDir)lib\</OutDir>
     <IntDir>obj\framework\$(Platform)\$(Configuration)\</IntDir>
     <TargetName>$(ProjectName)_d</TargetName>
-    <IncludePath>include;include/imgui;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>include;include/imgui;include/imgui_node_editor;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)lib\</OutDir>
     <IntDir>obj\framework\$(Platform)\$(Configuration)\</IntDir>
-    <IncludePath>include;include/imgui;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>include;include/imgui;include/imgui_node_editor;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
