@@ -1,11 +1,14 @@
 #include "ImGuiSample.h"
 #include <string>
 #include "imgui/imgui.h"
+#include "imgui_node_editor/imgui_node_editor.h"
 // ------------------------------------
 //
 //		*** class ImGuiSample ***
 //
 // ------------------------------------
+
+namespace ed = ax::NodeEditor;
 
 ImGuiSample::ImGuiSample(std::string name,
     DX12Framework::DX12FRAMEBUFFERING buffering, bool useWARP) :
@@ -24,6 +27,10 @@ bool ImGuiSample::initialize()
     if (!initImGui())
         return false;
 
+    ed::Config config;
+    config.SettingsFile = "Simple.json";
+    m_context = ed::CreateEditor(&config);
+
     endCommandList();
     executeCommandList();
     WaitForGpu();
@@ -33,6 +40,11 @@ bool ImGuiSample::initialize()
 	return true;
 }
 
+void ImGuiSample::finalize()
+{
+    ed::DestroyEditor(m_context);
+    DX12Framework::finalize();
+}
 
 bool ImGuiSample::beginCommandList()
 {
@@ -113,6 +125,47 @@ bool ImGuiSample::populateCommandList()
         ImGui::Text("Hello from another window!");
         if (ImGui::Button("Close Me"))
             show_another_window = false;
+        ImGui::End();
+    }
+
+    static bool show_nodes_wnd = true;
+    if (show_nodes_wnd)
+    {
+        ImGui::Begin("Nodes editor", &show_nodes_wnd);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+
+        ImGui::Separator();
+
+        ed::SetCurrentEditor(m_context);
+        ed::Begin("My Editor", ImVec2(0.0, 0.0f));
+        int uniqueId = 1;
+
+        // Start drawing nodes.
+        ed::BeginNode(uniqueId++);
+        ImGui::Text("Node A");
+        ed::BeginPin(uniqueId++, ed::PinKind::Input);
+        ImGui::Text("-> In");
+        ed::EndPin();
+        ImGui::SameLine();
+        ed::BeginPin(uniqueId++, ed::PinKind::Output);
+        ImGui::Text("Out ->");
+        ed::EndPin();
+        ed::EndNode();
+
+        // Start drawing nodes.
+        ed::BeginNode(uniqueId++);
+        ImGui::Text("Node B");
+        ed::BeginPin(uniqueId++, ed::PinKind::Input);
+        ImGui::Text("-> In");
+        ed::EndPin();
+        ImGui::SameLine();
+        ed::BeginPin(uniqueId++, ed::PinKind::Output);
+        ImGui::Text("Out ->");
+        ed::EndPin();
+        ed::EndNode();
+
+        ed::End();
+        ed::SetCurrentEditor(nullptr);
+
         ImGui::End();
     }
 

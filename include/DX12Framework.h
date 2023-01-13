@@ -147,7 +147,7 @@ protected:
 	bool uploadSubresources( ID3D12Resource* pResource, UINT subResNum,
 		const D3D12_SUBRESOURCE_DATA* srDataArray );
 
-	void finalize();
+	virtual void finalize();
 
 	bool m_useWARPDevice{false};
 

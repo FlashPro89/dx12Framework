@@ -5,6 +5,12 @@
 
 #include "DX12Framework.h"
 
+namespace ax {
+	namespace NodeEditor{
+		struct EditorContext;
+	}
+}
+
 class ImGuiSample :
     public DX12Framework
 {
@@ -13,7 +19,8 @@ public:
 		DX12FRAMEBUFFERING::DX12FB_DOUBLE, bool useWARP = false);
 	~ImGuiSample();
 
-	bool initialize();
+	bool initialize() override;
+	void finalize() override;
 
 	bool beginCommandList();
 	bool populateCommandList();
@@ -25,6 +32,8 @@ public:
 	bool render();
 protected:
 	bool createRootSignatureAndPSO();
+
+	ax::NodeEditor::EditorContext *m_context = nullptr;
 };
 
 #endif
