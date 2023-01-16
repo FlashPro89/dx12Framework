@@ -75,11 +75,11 @@ bool ImGuiSample::populateCommandList()
     // Set necessary state.
     m_cpCommList->SetGraphicsRootSignature(m_cpRootSignature[0].Get());
 
-    ID3D12DescriptorHeap* ppHeaps[] = { m_cpSRVHeap.Get() };
+    ID3D12DescriptorHeap *ppHeaps[] = { m_cpSRVHeap.Get() };
     m_cpCommList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
-    CD3DX12_GPU_DESCRIPTOR_HANDLE h(m_cpSRVHeap->GetGPUDescriptorHandleForHeapStart(), 
-        0, m_srvDescriptorSize );
+    CD3DX12_GPU_DESCRIPTOR_HANDLE h(m_cpSRVHeap->GetGPUDescriptorHandleForHeapStart(),
+        0, m_srvDescriptorSize);
 
     m_cpCommList->RSSetViewports(1, &m_viewport);
     m_cpCommList->RSSetScissorRects(1, &m_scissorRect);
@@ -101,6 +101,24 @@ bool ImGuiSample::populateCommandList()
 
     beginImGui();
 
+    //sample_gui();
+    my_sample_gui();
+
+
+    endImGui();
+
+
+    // Indicate that the back buffer will now be used to present.
+    barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_cpRenderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+    m_cpCommList->ResourceBarrier(1, &barrier);
+
+    firstframe = false;
+
+    return true;
+}
+
+void ImGuiSample::sample_gui()
+{
     static bool show_demo_window = true;
     static bool show_another_window = true;
 
@@ -119,6 +137,7 @@ bool ImGuiSample::populateCommandList()
         ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
         ImGui::Checkbox("Another Window", &show_another_window);
 
+        const float clearColor[] = { 0.0f, 0.4f, 0.2f, 1.0f };
         ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
         ImGui::ColorEdit3("clear color", (float *)clearColor); // Edit 3 floats representing a color
 
@@ -166,7 +185,7 @@ bool ImGuiSample::populateCommandList()
         ImGui::Text("Out ->");
         ed::EndPin();
         ed::EndNode();
-        
+
         // Basic Widgets Demo  ==============================================================================================
         auto basic_id = uniqueId++;
         ed::BeginNode(basic_id);
@@ -283,7 +302,7 @@ bool ImGuiSample::populateCommandList()
 
         // Start columns, but use only first one.
         ImGui::BeginTable("DDD##TreeColumns", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_NoBordersInBodyUntilResize, ImVec2(200, 200));
-        
+
         ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, width + ImGui::GetStyle().WindowPadding.x
             + ImGui::GetStyle().ItemSpacing.x);
         // End of tree column startup --------------------------------------------------------------
@@ -301,8 +320,8 @@ bool ImGuiSample::populateCommandList()
         }
         // Tree Column Shutdown
         ImGui::EndTable();
-        
-        
+
+
         ed::EndNode(); // End of Tree Node Demo
 
         if (firstframe)
@@ -506,14 +525,107 @@ bool ImGuiSample::populateCommandList()
         ImGui::End();
         firstframe = false;
     }
+}
+void ImGuiSample::my_sample_gui()
+{
+    auto io = ImGui::GetIO();
+    static bool show_nodes_wnd = true;
+    ImGui::Begin("Nodes editor", &show_nodes_wnd);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+    ImGui::Separator();
 
-    endImGui();
+    // Node Editor Widget
+    ed::SetCurrentEditor(m_context);
+    ed::Begin("My Editor", ImVec2(0.0, 0.0f));
+    int uniqueId = 11;
 
-    // Indicate that the back buffer will now be used to present.
-    barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_cpRenderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
-    m_cpCommList->ResourceBarrier(1, &barrier);
+    char tmp_str[256] = {};
+    for (int i = 0; i < 10; i++)
+    {
+        sprintf_s(tmp_str, 256, "Node %d", i);
 
-    return true;
+        ed::BeginNode(i);
+        ImGui::Text(tmp_str);
+        ed::BeginPin(i + 10, ed::PinKind::Input);
+        ImGui::Text("-> In");
+        ed::EndPin();
+        ImGui::SameLine();
+        ImGui::Dummy(ImVec2(25, 0)); // Hacky magic number to space out the output pin.
+        ImGui::SameLine();
+        ed::BeginPin(i + 20, ed::PinKind::Output);
+        ImGui::Text("Out ->");
+        ed::EndPin();
+        ed::EndNode();
+    }
+
+
+    if (firstframe)
+    {
+        for (int i = 0; i < 10; i++)
+            ed::SetNodePosition(i, ImVec2(i * 100, i * 100));
+
+        LinkInfo link_info;
+        link_info.Id = 100;
+        link_info.InputId = 10;
+        link_info.OutputId = 29;
+        m_Links.push_back(link_info);
+        ed::Link(m_Links.back().Id, m_Links.back().InputId, m_Links.back().OutputId);
+
+        for (int i = 0; i < 9; i++)
+        {
+            LinkInfo link_info;
+            link_info.Id = i + 40;
+            link_info.InputId = i + 11;
+            link_info.OutputId = i + 20;
+            m_Links.push_back(link_info);
+            ed::Link(m_Links.back().Id, m_Links.back().InputId, m_Links.back().OutputId);
+        }
+    }
+
+    for (auto &linkInfo : m_Links)
+        ed::Link(linkInfo.Id, linkInfo.InputId, linkInfo.OutputId);
+    // Handle creation action ---------------------------------------------------------------------------
+    if (ed::BeginCreate())
+    {
+        ed::PinId inputPinId, outputPinId;
+        if (ed::QueryNewLink(&inputPinId, &outputPinId))
+        {
+            if (inputPinId && outputPinId)
+            {
+                if (ed::AcceptNewItem())
+                {
+                    m_Links.push_back({ ed::LinkId(m_NextLinkId++), inputPinId, outputPinId });
+                    ed::Link(m_Links.back().Id, m_Links.back().InputId, m_Links.back().OutputId);
+                }
+            }
+        }
+    }
+    ed::EndCreate();
+    // Handle deletion action ---------------------------------------------------------------------------
+    if (ed::BeginDelete())
+    {
+        ed::LinkId deletedLinkId;
+        while (ed::QueryDeletedLink(&deletedLinkId))
+        {
+            if (ed::AcceptDeletedItem())
+            {
+                for (auto &link : m_Links)
+                {
+                    if (link.Id == deletedLinkId)
+                    {
+                        m_Links.erase(&link);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    ed::EndDelete();
+
+    ed::End();
+    ed::SetCurrentEditor(nullptr);
+
+    ImGui::End();
+    firstframe = false;
 }
 
 bool ImGuiSample::endCommandList()
