@@ -26,6 +26,8 @@ public:
 	bool render();
 protected:
 	bool createRootSignatureAndPSO();
+	void sample_gui();
+	void my_sample_gui();
 };
 
 #endif
