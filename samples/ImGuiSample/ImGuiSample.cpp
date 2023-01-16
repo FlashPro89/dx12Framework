@@ -119,16 +119,60 @@ bool ImGuiSample::populateCommandList()
 
 void ImGuiSample::sample_gui()
 {
+    static bool show_demo_window = true;
+    static bool show_another_window = true;
+
+    // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+    if (show_demo_window)
+        ImGui::ShowDemoWindow(&show_demo_window);
+
+    // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
+    {
+        static float f = 0.0f;
+        static int counter = 0;
+
+        ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+        ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+        ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+        ImGui::Checkbox("Another Window", &show_another_window);
+
+        const float clearColor[] = { 0.0f, 0.4f, 0.2f, 1.0f };
+        ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+        ImGui::ColorEdit3("clear color", (float *)clearColor); // Edit 3 floats representing a color
+
+        if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+            counter++;
+        ImGui::SameLine();
+        ImGui::Text("counter = %d", counter);
+
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::End();
+    }
+
+    // 3. Show another simple window.
+    if (show_another_window)
+    {
+        ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+        ImGui::Text("Hello from another window!");
+        if (ImGui::Button("Close Me"))
+            show_another_window = false;
+        ImGui::End();
+    }
+
     static bool show_nodes_wnd = true;
     if (show_nodes_wnd)
     {
         auto io = ImGui::GetIO();
-        ImGui::Begin("Nodes editor", &show_nodes_wnd); 
+        ImGui::Begin("Nodes editor", &show_nodes_wnd);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+
+        ImGui::Separator();
 
         // Node Editor Widget
         ed::SetCurrentEditor(m_context);
         ed::Begin("My Editor", ImVec2(0.0, 0.0f));
         int uniqueId = 1;
+
 
         // Start drawing nodes.
         ed::BeginNode(uniqueId++);
@@ -142,9 +186,101 @@ void ImGuiSample::sample_gui()
         ed::EndPin();
         ed::EndNode();
 
+        // Basic Widgets Demo  ==============================================================================================
+        auto basic_id = uniqueId++;
+        ed::BeginNode(basic_id);
+        ImGui::Text("Basic Widget Demo");
+        ed::BeginPin(uniqueId++, ed::PinKind::Input);
+        ImGui::Text("-> In");
+        ed::EndPin();
+        ImGui::SameLine();
+        ImGui::Dummy(ImVec2(250, 0)); // Hacky magic number to space out the output pin.
+        ImGui::SameLine();
+        ed::BeginPin(uniqueId++, ed::PinKind::Output);
+        ImGui::Text("Out ->");
+        ed::EndPin();
+
+        // Widget Demo from imgui_demo.cpp...
+        // Normal Button
+        static int clicked = 0;
+        if (ImGui::Button("Button"))
+            clicked++;
+        if (clicked & 1)
+        {
+            ImGui::SameLine();
+            ImGui::Text("Thanks for clicking me!");
+        }
+
+        // Checkbox
+        static bool check = true;
+        ImGui::Checkbox("checkbox", &check);
+
+        // Radio buttons
+        static int e = 0;
+        ImGui::RadioButton("radio a", &e, 0); ImGui::SameLine();
+        ImGui::RadioButton("radio b", &e, 1); ImGui::SameLine();
+        ImGui::RadioButton("radio c", &e, 2);
+
+        // Color buttons, demonstrate using PushID() to add unique identifier in the ID stack, and changing style.
+        for (int i = 0; i < 7; i++)
+        {
+            if (i > 0)
+                ImGui::SameLine();
+            ImGui::PushID(i);
+            ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(i / 7.0f, 0.6f, 0.6f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(i / 7.0f, 0.7f, 0.7f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(i / 7.0f, 0.8f, 0.8f));
+            ImGui::Button("Click");
+            ImGui::PopStyleColor(3);
+            ImGui::PopID();
+        }
+
+        // Use AlignTextToFramePadding() to align text baseline to the baseline of framed elements (otherwise a Text+SameLine+Button sequence will have the text a little too high by default)
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Hold to repeat:");
+        ImGui::SameLine();
+
+        // Arrow buttons with Repeater
+        static int counter = 0;
+        float spacing = ImGui::GetStyle().ItemInnerSpacing.x;
+        ImGui::PushButtonRepeat(true);
+        if (ImGui::ArrowButton("##left", ImGuiDir_Left)) { counter--; }
+        ImGui::SameLine(0.0f, spacing);
+        if (ImGui::ArrowButton("##right", ImGuiDir_Right)) { counter++; }
+        ImGui::PopButtonRepeat();
+        ImGui::SameLine();
+        ImGui::Text("%d", counter);
+
+        // The input widgets also require you to manually disable the editor shortcuts so the view doesn't fly around.
+        // (note that this is a per-frame setting, so it disables it for all text boxes.  I left it here so you could find it!)
+        ed::EnableShortcuts(!io.WantTextInput);
+        // The input widgets require some guidance on their widths, or else they're very large. (note matching pop at the end).
+        ImGui::PushItemWidth(200);
+        static char str1[128] = "";
+        ImGui::InputTextWithHint("input text (w/ hint)", "enter text here", str1, IM_ARRAYSIZE(str1));
+
+        static float f0 = 0.001f;
+        ImGui::InputFloat("input float", &f0, 0.01f, 1.0f, "%.3f");
+
+        static float f1 = 1.00f, f2 = 0.0067f;
+        ImGui::DragFloat("drag float", &f1, 0.005f);
+        ImGui::DragFloat("drag small float", &f2, 0.0001f, 0.0f, 0.0f, "%.06f ns");
+        ImGui::PopItemWidth();
+
+        ed::EndNode();
+        if (firstframe)
+        {
+            ed::SetNodePosition(basic_id, ImVec2(20, 20));
+        }
+
+        // Headers and Trees Demo =======================================================================================================
+        // TreeNodes and Headers streatch to the entire remaining work area. To put them in nodes what we need to do is to tell
+        // ImGui out work area is shorter. We can achieve that right now only by using columns API.
+        //
+        // Relevent bugs: https://github.com/thedmd/imgui-node-editor/issues/30
         auto header_id = uniqueId++;
         ed::BeginNode(header_id);
-        ImGui::Text("Node B");
+        ImGui::Text("Tree Widget Demo");
 
         // Pins Row
         ed::BeginPin(uniqueId++, ed::PinKind::Input);
@@ -156,11 +292,184 @@ void ImGuiSample::sample_gui()
         ed::BeginPin(uniqueId++, ed::PinKind::Output);
         ImGui::Text("Out ->");
         ed::EndPin();
+
+        // Tree column startup -------------------------------------------------------------------
+        // Push dummy widget to extend node size. Columns do not do that.
+        float width = 135; // bad magic numbers. used to define width of tree widget
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
+        ImGui::Dummy(ImVec2(width, 0));
+        ImGui::PopStyleVar();
+
+        // Start columns, but use only first one.
+        ImGui::BeginTable("DDD##TreeColumns", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_NoBordersInBodyUntilResize, ImVec2(200, 200));
+
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, width + ImGui::GetStyle().WindowPadding.x
+            + ImGui::GetStyle().ItemSpacing.x);
+        // End of tree column startup --------------------------------------------------------------
+
+        // Back to normal ImGui drawing, in our column.
+        if (ImGui::CollapsingHeader("Open Header##GG"))
+        {
+            ImGui::Text("Hello There");
+            if (ImGui::TreeNode("Open Tree")) {
+                static bool OP1_Bool = false;
+                ImGui::Text("Checked: %s", OP1_Bool ? "true" : "false");
+                ImGui::Checkbox("Option 1", &OP1_Bool);
+                ImGui::TreePop();
+            }
+        }
+        // Tree Column Shutdown
+        ImGui::EndTable();
+
+
         ed::EndNode(); // End of Tree Node Demo
 
         if (firstframe)
-            ed::SetNodePosition(header_id, ImVec2(0, 50));
+        {
+            ed::SetNodePosition(header_id, ImVec2(420, 20));
+        }
 
+        // Tool Tip & Pop-up Demo =====================================================================================
+        // Tooltips, combo-boxes, drop-down menus need to use a work-around to place the "overlay window" in the canvas.
+        // To do this, we must defer the popup calls until after we're done drawing the node material.
+        //
+        // Relevent bugs:  https://github.com/thedmd/imgui-node-editor/issues/48
+        auto popup_id = uniqueId++;
+        ed::BeginNode(popup_id);
+        ImGui::Text("Tool Tip & Pop-up Demo");
+        ed::BeginPin(uniqueId++, ed::PinKind::Input);
+        ImGui::Text("-> In");
+        ed::EndPin();
+        ImGui::SameLine();
+        ImGui::Dummy(ImVec2(85, 0)); // Hacky magic number to space out the output pin.
+        ImGui::SameLine();
+        ed::BeginPin(uniqueId++, ed::PinKind::Output);
+        ImGui::Text("Out ->");
+        ed::EndPin();
+
+        // Tooltip example
+        ImGui::Text("Hover over me");
+        static bool do_tooltip = false;
+        do_tooltip = ImGui::IsItemHovered() ? true : false;
+        ImGui::SameLine();
+        ImGui::Text("- or me");
+        static bool do_adv_tooltip = false;
+        do_adv_tooltip = ImGui::IsItemHovered() ? true : false;
+
+        // Use AlignTextToFramePadding() to align text baseline to the baseline of framed elements
+        // (otherwise a Text+SameLine+Button sequence will have the text a little too high by default)
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Option:");
+        ImGui::SameLine();
+        static char popup_text[128] = "Pick one!";
+        static bool do_popup = false;
+        if (ImGui::Button(popup_text)) {
+            do_popup = true;	// Instead of saying OpenPopup() here, we set this bool, which is used later in the Deferred Pop-up Section
+        }
+        ed::EndNode();
+        if (firstframe) {
+            ed::SetNodePosition(popup_id, ImVec2(610, 20));
+        }
+
+        // --------------------------------------------------------------------------------------------------
+        // Deferred Pop-up Section
+
+        // This entire section needs to be bounded by Suspend/Resume!  These calls pop us out of "node canvas coordinates"
+        // and draw the popups in a reasonable screen location.
+        ed::Suspend();
+        // There is some stately stuff happening here.  You call "open popup" exactly once, and this
+        // causes it to stick open for many frames until the user makes a selection in the popup, or clicks off to dismiss.
+        // More importantly, this is done inside Suspend(), so it loads the popup with the correct screen coordinates!
+        if (do_popup) {
+            ImGui::OpenPopup("popup_button"); // Cause openpopup to stick open.
+            do_popup = false; // disable bool so that if we click off the popup, it doesn't open the next frame.
+        }
+
+        // This is the actual popup Gui drawing section.
+        if (ImGui::BeginPopup("popup_button")) {
+            // Note: if it weren't for the child window, we would have to PushItemWidth() here to avoid a crash!
+            ImGui::TextDisabled("Pick One:");
+            ImGui::BeginChild("popup_scroller", ImVec2(100, 100), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+            if (ImGui::Button("Option 1")) {
+                strcpy_s(popup_text, 128, "Option 1");
+                ImGui::CloseCurrentPopup();  // These calls revoke the popup open state, which was set by OpenPopup above.
+            }
+            if (ImGui::Button("Option 2")) {
+                strcpy_s(popup_text, 128, "Option 2");
+                ImGui::CloseCurrentPopup();
+            }
+            if (ImGui::Button("Option 3")) {
+                strcpy_s(popup_text, 128, "Option 3");
+                ImGui::CloseCurrentPopup();
+            }
+            if (ImGui::Button("Option 4")) {
+                strcpy_s(popup_text, 128, "Option 4");
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndChild();
+            ImGui::EndPopup(); // Note this does not do anything to the popup open/close state. It just terminates the content declaration.
+        }
+
+        // Handle the simple tooltip
+        if (do_tooltip)
+            ImGui::SetTooltip("I am a tooltip");
+
+        // Handle the advanced tooltip
+        if (do_adv_tooltip) {
+            ImGui::BeginTooltip();
+            ImGui::Text("I am a fancy tooltip");
+            static float arr[] = { 0.6f, 0.1f, 1.0f, 0.5f, 0.92f, 0.1f, 0.2f };
+            ImGui::PlotLines("Curve", arr, IM_ARRAYSIZE(arr));
+            ImGui::EndTooltip();
+        }
+
+        ed::Resume();
+        // End of "Deferred Pop-up section"
+
+
+
+        // Plot Widgets =========================================================================================
+        // Note: most of these plots can't be used in nodes missing, because they spawn tooltips automatically,
+        // so we can't trap them in our deferred pop-up mechanism.  This causes them to fly into a random screen
+        // location.
+        auto plot_id = uniqueId++;
+        ed::BeginNode(plot_id);
+        ImGui::Text("Plot Demo");
+        ed::BeginPin(uniqueId++, ed::PinKind::Input);
+        ImGui::Text("-> In");
+        ed::EndPin();
+        ImGui::SameLine();
+        ImGui::Dummy(ImVec2(250, 0)); // Hacky magic number to space out the output pin.
+        ImGui::SameLine();
+        ed::BeginPin(uniqueId++, ed::PinKind::Output);
+        ImGui::Text("Out ->");
+        ed::EndPin();
+
+        ImGui::PushItemWidth(300);
+
+        // Animate a simple progress bar
+        static float progress = 0.0f, progress_dir = 1.0f;
+        progress += progress_dir * 0.4f * ImGui::GetIO().DeltaTime;
+        if (progress >= +1.1f) { progress = +1.1f; progress_dir *= -1.0f; }
+        if (progress <= -0.1f) { progress = -0.1f; progress_dir *= -1.0f; }
+
+
+        // Typically we would use ImVec2(-1.0f,0.0f) or ImVec2(-FLT_MIN,0.0f) to use all available width,
+        // or ImVec2(width,0.0f) for a specified width. ImVec2(0.0f,0.0f) uses ItemWidth.
+        ImGui::ProgressBar(progress, ImVec2(0.0f, 0.0f));
+        ImGui::SameLine(0.0f, ImGui::GetStyle().ItemInnerSpacing.x);
+        ImGui::Text("Progress Bar");
+
+        float progress_saturated = (progress < 0.0f) ? 0.0f : (progress > 1.0f) ? 1.0f : progress;
+        char buf[32];
+        sprintf_s<32>(buf, "%d/%d", (int)(progress_saturated * 1753), 1753);
+        ImGui::ProgressBar(progress, ImVec2(0.f, 0.f), buf);
+
+        ImGui::PopItemWidth();
+        ed::EndNode();
+        if (firstframe) {
+            ed::SetNodePosition(plot_id, ImVec2(850, 20));
+        }
         // ==================================================================================================
         // Link Drawing Section
 
@@ -214,6 +523,7 @@ void ImGuiSample::sample_gui()
         ed::SetCurrentEditor(nullptr);
 
         ImGui::End();
+        firstframe = false;
     }
 }
 void ImGuiSample::my_sample_gui()
@@ -226,31 +536,12 @@ void ImGuiSample::my_sample_gui()
     // Node Editor Widget
     ed::SetCurrentEditor(m_context);
     ed::Begin("My Editor", ImVec2(0.0, 0.0f));
-
-
-    ed::BeginNode(777);
-    ImGui::Text("Node 777");
-    ImGui::Dummy(ImVec2(25, 0)); // Hacky magic number to space out the output pin.
-    ImGui::SameLine();
-    ed::BeginPin(778, ed::PinKind::Output);
-    ImGui::Text("Out ->");
-    ed::EndPin();
-    ed::EndNode();
-
-    ed::BeginNode(888);
-    ImGui::Text("Node 888");
-    ed::BeginPin(889, ed::PinKind::Input);
-    ImGui::Text("-> In");
-    ed::EndPin();
-    ImGui::SameLine();
-    ImGui::Dummy(ImVec2(25, 0)); // Hacky magic number to space out the output pin.
-    ed::EndNode();
-   
+    int uniqueId = 11;
 
     char tmp_str[256] = {};
-    for (int i = 1; i < 11; i++)
+    for (int i = 0; i < 10; i++)
     {
-        sprintf_s(tmp_str, 256, "Node %d", i-1);
+        sprintf_s(tmp_str, 256, "Node %d", i);
 
         ed::BeginNode(i);
         ImGui::Text(tmp_str);
@@ -270,21 +561,23 @@ void ImGuiSample::my_sample_gui()
     if (firstframe)
     {
         for (int i = 0; i < 10; i++)
-            ed::SetNodePosition(i+1, ImVec2(i * 100, i * 100));
+            ed::SetNodePosition(i, ImVec2(i * 100, i * 100));
 
         LinkInfo link_info;
-        link_info.Id = 69;
-        link_info.InputId = 11;
-        link_info.OutputId = 30;
+        link_info.Id = 100;
+        link_info.InputId = 10;
+        link_info.OutputId = 29;
         m_Links.push_back(link_info);
+        ed::Link(m_Links.back().Id, m_Links.back().InputId, m_Links.back().OutputId);
 
-        for (int i = 1; i < 10; i++)
+        for (int i = 0; i < 9; i++)
         {
             LinkInfo link_info;
-            link_info.Id = i + 70;
+            link_info.Id = i + 40;
             link_info.InputId = i + 11;
             link_info.OutputId = i + 20;
             m_Links.push_back(link_info);
+            ed::Link(m_Links.back().Id, m_Links.back().InputId, m_Links.back().OutputId);
         }
     }
 
@@ -325,21 +618,14 @@ void ImGuiSample::my_sample_gui()
                 }
             }
         }
-
-        //ed::NodeId deletedNodeId;
-        //while (ed::QueryDeletedNode(&deletedNodeId))
-        //{
-        //    if (ed::AcceptDeletedItem())
-        //    {
-        //        // ...
-        //    }
-        //}
     }
     ed::EndDelete();
+
     ed::End();
     ed::SetCurrentEditor(nullptr);
 
     ImGui::End();
+    firstframe = false;
 }
 
 bool ImGuiSample::endCommandList()
