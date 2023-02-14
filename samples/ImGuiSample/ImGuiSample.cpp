@@ -560,7 +560,7 @@ void ImGuiSample::my_sample_gui()
     if (firstframe)
     {
         for (int i = 0; i < 10; i++)
-            ed::SetNodePosition(i, ImVec2(i * 100, i * 100));
+            ed::SetNodePosition(i, ImVec2(i * 100.f, i * 100.f));
 
         LinkInfo link_info;
         link_info.Id = 70;
