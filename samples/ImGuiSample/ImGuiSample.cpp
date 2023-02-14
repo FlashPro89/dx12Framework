@@ -536,22 +536,21 @@ void ImGuiSample::my_sample_gui()
     // Node Editor Widget
     ed::SetCurrentEditor(m_context);
     ed::Begin("My Editor", ImVec2(0.0, 0.0f));
-    int uniqueId = 11;
 
     char tmp_str[256] = {};
-    for (int i = 0; i < 10; i++)
+    for (int i = 1; i < 10; i++)
     {
-        sprintf_s(tmp_str, 256, "Node %d", i);
+        sprintf_s(tmp_str, 256, "Node %d", i-1);
 
         ed::BeginNode(i);
         ImGui::Text(tmp_str);
-        ed::BeginPin(i + 10, ed::PinKind::Input);
+        ed::BeginPin(i + 20, ed::PinKind::Input);
         ImGui::Text("-> In");
         ed::EndPin();
         ImGui::SameLine();
         ImGui::Dummy(ImVec2(25, 0)); // Hacky magic number to space out the output pin.
         ImGui::SameLine();
-        ed::BeginPin(i + 20, ed::PinKind::Output);
+        ed::BeginPin(i + 30, ed::PinKind::Output);
         ImGui::Text("Out ->");
         ed::EndPin();
         ed::EndNode();
@@ -561,21 +560,21 @@ void ImGuiSample::my_sample_gui()
     if (firstframe)
     {
         for (int i = 0; i < 10; i++)
-            ed::SetNodePosition(i, ImVec2(i * 100, i * 100));
+            ed::SetNodePosition(i, ImVec2(i * 100.f, i * 100.f));
 
         LinkInfo link_info;
-        link_info.Id = 100;
-        link_info.InputId = 10;
-        link_info.OutputId = 29;
+        link_info.Id = 70;
+        link_info.InputId = 21;
+        link_info.OutputId = 39;
         m_Links.push_back(link_info);
         ed::Link(m_Links.back().Id, m_Links.back().InputId, m_Links.back().OutputId);
 
-        for (int i = 0; i < 9; i++)
+        for (int i = 1; i < 10; i++)
         {
             LinkInfo link_info;
-            link_info.Id = i + 40;
-            link_info.InputId = i + 11;
-            link_info.OutputId = i + 20;
+            link_info.Id = i + 70;
+            link_info.InputId = i + 21;
+            link_info.OutputId = i + 30;
             m_Links.push_back(link_info);
             ed::Link(m_Links.back().Id, m_Links.back().InputId, m_Links.back().OutputId);
         }
